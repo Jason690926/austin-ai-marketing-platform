@@ -75,7 +75,7 @@ export function ImageTab() {
   const isFreeformScene = sceneId === 'freeform'
 
   // For Level 2: count distinct orientations selected → API call count
-  const selectedOrients = [...new Set(SIZES.filter(s => sizes.includes(s.value)).map(s => s.orient))]
+  const selectedOrients = Array.from(new Set(SIZES.filter(s => sizes.includes(s.value)).map(s => s.orient)))
   const apiCallCount = level === 'level2' ? sizes.length : selectedOrients.length
 
   function addFeature() {

@@ -39,7 +39,7 @@ export function AppShell({ children, user, logoutAction }: AppShellProps) {
 
         <nav className="flex-1 p-3 space-y-1">
           {NAV.map((item) => {
-            if ('children' in item) {
+            if ('children' in item && item.children) {
               const parentActive = item.children.some(c => pathname === c.href)
               return (
                 <div key={item.label}>

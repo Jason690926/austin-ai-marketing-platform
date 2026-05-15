@@ -15,11 +15,11 @@ const STORES: { value: AssetStore; label: string }[] = [
 
 const PURPOSES: { value: AssetPurpose; label: string; desc: string }[] = [
   { value: 'ad',          label: '廣告文案', desc: 'FB / IG 付費廣告' },
+  { value: 'fb_post',     label: 'FB 貼文',  desc: 'Facebook Page 發文' },
   { value: 'post',        label: '社群貼文', desc: 'IG / FB 一般貼文' },
   { value: 'web_brand',   label: '品牌故事', desc: '官網品牌介紹'     },
   { value: 'web_product', label: '商品介紹', desc: '商品頁規格說明'   },
   { value: 'seo_article', label: 'SEO 文章', desc: '關鍵字優化長文'   },
-  { value: 'thread',      label: 'Thread 貼文', desc: 'Threads 短文串' },
 ]
 
 const FREEFORM_SCENE_ID = 'freeform'
