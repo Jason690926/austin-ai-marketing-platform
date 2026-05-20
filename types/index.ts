@@ -7,7 +7,15 @@ export interface AppUser {
 
 export type AssetType = 'image' | 'copy'
 export type AssetStore = 'mattress' | 'bedding'
-export type AssetPurpose = 'ad' | 'post' | 'web_brand' | 'web_product' | 'seo_article' | 'fb_post'
+export type AssetPurpose =
+  | 'ad'                // Meta（FB / IG）付費廣告
+  | 'google_search_ad'  // Google 搜尋廣告（Responsive Search Ads）
+  | 'pmax_ad'           // Google Performance Max / Responsive Display
+  | 'post'              // IG / FB 一般社群貼文
+  | 'fb_post'           // FB 粉專貼文
+  | 'web_brand'         // 官網品牌故事
+  | 'web_product'       // 官網商品介紹
+  | 'seo_article'       // SEO / AEO / GEO 內容
 export type AssetSource = 'ai_generated' | 'user_uploaded' | 'reference_remix'
 export type ImageLevel = 'level1_base' | 'level2_complete'
 export type AspectRatio = '1:1' | '4:5' | '9:16' | '16:9' | '1.91:1' | '21:9' | '4:3'
@@ -79,12 +87,20 @@ export interface GenerateImageRequest {
   additionalNotes?: string
 }
 
+export type CtaType = 'ecommerce' | 'call' | 'visit' | 'info'
+
 export interface GenerateCopyRequest {
   store: AssetStore
   purpose: AssetPurpose
   sceneId?: string
   freeformDescription?: string
   additionalNotes?: string
+  keywords?: string         // 主關鍵字（廣告 / SEO 用，可逗號分隔）
+  campaigns?: string[]      // 行銷檔期 id 多選（lib/copy/campaigns.ts）
+  ctaType?: CtaType         // 廣告類 CTA 類型偏好（影響 CTA 區塊用字）
+  // Optional reference image (data URL or raw base64) for multimodal mood analysis
+  referenceImageBase64?: string
+  referenceImageMimeType?: string
 }
 
 export interface GenerateResponse {
