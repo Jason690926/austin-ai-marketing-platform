@@ -33,11 +33,15 @@
 - Sheets 整合（Meta 廣告推送）：
   - `lib/sheets/client.ts` — Service Account 認證 + col 字母轉換
   - `app/api/sheets/push-meta-ad/route.ts` — frame 偵測 / 複製 / smart skip / 寫入
+- Meta 自動發文（發貼文到 FB Page）：
+  - `lib/meta/client.ts` — Graph API client，發圖文貼文到 `/{page-id}/photos`
+  - `app/api/posts/publish/route.ts` — 扇出發布 + 失敗重試 + 寫 posts 表
 - API：
   - `app/api/generate/copy/route.ts` — Gemini 文案產生
   - `app/api/sheets/push-meta-ad/route.ts` — Meta 廣告 → Google Sheet
-- 頁面：`app/generator/{image,copy}`、`app/library`（素材庫）、`app/login`
-- DB：`supabase/migrations/*.sql`；`supabase/setup.sql` 為 001+002+004 合併的一次性建置（migration 003 加 DELETE RLS 政策、004 加 google_search_ad / pmax_ad purpose）
+  - `app/api/posts/publish/route.ts` — 文案 + 圖 → 發到 FB Page
+- 頁面：`app/generator/{image,copy}`、`app/library`（素材庫）、`app/publish`（發布貼文）、`app/posts`（發文紀錄）、`app/login`
+- DB：`supabase/migrations/*.sql`；`supabase/setup.sql` 為 001+002+004 合併的一次性建置（migration 003 加 DELETE RLS 政策、004 加 google_search_ad / pmax_ad purpose、005 加 posts 表）
 
 ## 開發流程
 
@@ -46,7 +50,7 @@ npm run dev          # localhost:3000，讀 .env.local
 npx tsc --noEmit     # 型別檢查（每次改完跑）
 ```
 
-- `.env.local`（被 .gitignore 排除）需要：Supabase URL/anon/service_role、`GEMINI_API_KEY`。範本見 `.env.local.example`。
+- `.env.local`（被 .gitignore 排除）需要：Supabase URL/anon/service_role、`GEMINI_API_KEY`、Sheets 用 `GOOGLE_SHEETS_SA_JSON`、自動發文用 `META_PAGE_ID`/`META_PAGE_NAME`/`META_PAGE_ACCESS_TOKEN`。範本見 `.env.local.example`。
 - **改 `.env.local` 後必須重啟 dev server**（Next 不會熱載入 env）。
 - Supabase 是雲端**獨立帳號**新開的 project（免費版每帳號 2 project 上限，原帳號已滿）。DB schema 變更要使用者自行到 Supabase SQL Editor 跑對應 migration（無 CLI）。
 - 沒裝 Docker、此工作階段無系統管理員權限。
@@ -58,7 +62,7 @@ npx tsc --noEmit     # 型別檢查（每次改完跑）
 - 專案擁有者是 Austin，使用者代為開發且**全權做主** — 不要提醒「與 Austin 確認」。
 - 不擅自 commit / push；使用者要求才做。
 
-## 目前狀態（2026-05-20）
+## 目前狀態（2026-05-21）
 
 已可運作：
 - 真實 Supabase 登入
@@ -71,14 +75,19 @@ npx tsc --noEmit     # 型別檢查（每次改完跑）
   - 結果區塊化顯示 + 每區獨立複製
   - **Meta 廣告 → Google Sheet 一鍵推送**（含 frame 複製、orphan smart skip、主標題二選一 radio、字數限制 25/30、frame 狀態 debug）
 - `/library` 素材庫：**月份 dashboard 兩層**（tier 1 月份資訊卡含類型/品牌/熱門用途；tier 2 進入月份後篩選 + grid）
+- **自動發文**（側邊欄「自動發文」分群）：
+  - `/publish` 發布貼文：挑文案（產生器帶入 / 素材庫挑選）+ 上傳圖 + 勾選 Page → 一鍵發到 FB Page
+  - `/posts` 發文紀錄：每發一個 Page 一列,顯示成功/失敗 + Meta 連結 + 錯誤訊息
+  - 失敗處理：逐家發、成功略過失敗、跑完重試失敗清單第 2 次、再失敗則停並標紅等人工
+  - 單一 Page 階段：Page 憑證由 `.env.local` 提供;已實測發文成功（測試粉專 AZING HOME）
 
-待辦：#2 Imagen 3 產圖、#3 Meta Graph 發文、#4 FB Pages 管理、#5 排程 UI。
+待辦：#2 Imagen 3 產圖、#4 FB Pages 管理（多經銷商 token DB 表）、#5 排程 UI。
 
 ### 已知問題（下一步要處理）
 
 1. **參考圖文案品質差**：上傳聯名角色圖（如 SNOOPY）時，文案只講品牌、忽略圖中主角。根因：`copywriter.ts` 人格、`route.ts` 參考圖指令只叫模型參考「氛圍/光線/色調」，沒叫它辨識圖中角色/商品並當主角。
 
-### 改動歷程（2026-05-20）
+### 改動歷程（2026-05-20 ~ 05-21）
 
 **第一輪：scaffold 殘留清除**
 - `copywriter.ts` `PURPOSE_GUIDE.web_brand` 移除「百年德國工藝」殘留。
@@ -126,6 +135,18 @@ npx tsc --noEmit     # 型別檢查（每次改完跑）
 - **Frame 寬度偵測 bug 修正**：原本用「max endColumnIndex of merges with startCol<10」每推送一次就把新 frame 的合併算進來，frameWidth 越漲越大（最後變 stride 10 而非 5），造成 sheet 跳欄並產生「orphan 標籤欄」（P、Z、AJ、AT 有標籤但無值）。改為**迭代間隔偵測**：依 startCol 排序，遇 gap 立即停。
 - **Smart skip — 重用 orphan 標籤**：偵測到目標 frame 已有 labels（從歷史 bug 殘留）時跳過 `copyPaste`，直接寫值 → 新推送會自動填補既有 orphan 空欄。
 - Sheet UI 加 **「🗂 Frame 狀態」** 折疊面板，列出每個 frame 的 `hasLabels` / `valuesFound` / `occupied` 狀態，方便排查。
+
+**第七輪：自動發文 — 發貼文到 FB Page（2026-05-21）**
+- 需求經 grill 模式釐清：同一篇文 + 同一張圖扇出發 N 個 Page;先做總公司單一 Page,終極目標 30 經銷商。即時發、不需審核（總公司自產文）、圖手動上傳系統後直傳 Meta 不落地。
+- `supabase/migrations/005_create_posts.sql`（新）：`posts` 表,每發一個 Page 一列。`asset_id` 用 `ON DELETE SET NULL` + 另存 `copy_text` 快照,素材刪除後紀錄仍存。
+- `types/index.ts` 加 `Post`、`PublishStatus`、`PublishPageResult`。
+- `lib/meta/client.ts`（新）：`getMetaPages()` 讀 env;`publishPhotoPost()` 用 multipart 把圖 binary 直傳 `POST /{page-id}/photos`。
+- `app/api/posts/publish/route.ts`（新）：multipart 接 copyText/assetId/pageIds/image。Round 1 逐家發 → Round 2 重試失敗清單 → 寫 posts 表 → 回逐家結果。
+- `app/publish` + `components/publish/publish-view.tsx`（新）：文案下拉（素材庫）+ 編輯區、上傳圖、Page 多選 checkbox、逐家結果顯示。
+- `app/posts/page.tsx`（新）：發文紀錄列表（server component）。
+- `app-shell.tsx` 側邊欄加「自動發文」分群;`copy-tab.tsx` 結果區 `fb_post`/`post` 加「發布貼文」鈕（帶 `?assetId=` 跳 `/publish`）;`app/page.tsx` 改 redirect 到 `/generator`（原為 Next 預設 starter）。
+- `.env.local.example` 加 `META_PAGE_ID`/`META_PAGE_NAME`/`META_PAGE_ACCESS_TOKEN`。
+- ⚠️ 使用者需自行：建 FB 測試粉專、建 Meta App（開發模式）、加「管理粉絲專頁的所有內容」使用案例、Graph API Explorer 取權限（pages_show_list/pages_read_engagement/pages_manage_posts）→ 換**永久 Page Token**（短期 User Token → 延伸成長期 → me/accounts 衍生出的 Page Token 不過期）。發文用的一定是 Page Token,不是 User Token（用 User Token 會回誤導性的 `(#200) publish_actions deprecated`）。
 
 ### 廣告類結構化輸出規格（提醒模型用）
 

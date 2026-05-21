@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Sparkles, Images, LogOut, Image, FileText } from 'lucide-react'
+import { Sparkles, Images, LogOut, Image, FileText, Send, History } from 'lucide-react'
 
 const NAV = [
   {
@@ -17,6 +17,14 @@ const NAV = [
     label: '素材庫',
     icon: Images,
     href: '/library',
+  },
+  {
+    label: '自動發文',
+    icon: Send,
+    children: [
+      { href: '/publish', label: '發布貼文', icon: Send },
+      { href: '/posts',   label: '發文紀錄', icon: History },
+    ],
   },
 ]
 

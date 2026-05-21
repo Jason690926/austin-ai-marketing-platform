@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
-import { ImagePlus, X, Copy, Check, ChevronDown, ChevronUp, Sheet, ExternalLink } from 'lucide-react'
+import { ImagePlus, X, Copy, Check, ChevronDown, ChevronUp, Sheet, ExternalLink, Send } from 'lucide-react'
 import type { AssetStore, AssetPurpose, CtaType } from '@/types'
 
 const CTA_TYPES: { value: CtaType; label: string; hint: string }[] = [
@@ -55,6 +55,7 @@ export function CopyTab() {
 
   const [loading, setLoading] = useState(false)
   const [result,  setResult]  = useState<string | null>(null)
+  const [resultAssetId, setResultAssetId] = useState<string | null>(null)
   const [errorMsg, setErrorMsg] = useState('')
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
 
@@ -103,6 +104,7 @@ export function CopyTab() {
     setLoading(true)
     setErrorMsg('')
     setResult(null)
+    setResultAssetId(null)
     try {
       const payload: Record<string, unknown> = { store, purpose }
       if (campaigns.length > 0) payload.campaigns = campaigns
@@ -122,6 +124,7 @@ export function CopyTab() {
         return
       }
       setResult(data.asset?.copy_text ?? '')
+      setResultAssetId(data.asset?.id ?? null)
     } catch (e: any) {
       setErrorMsg(e?.message || '網路或未知錯誤')
     } finally {
@@ -295,6 +298,7 @@ export function CopyTab() {
         <ResultDisplay
           text={result}
           purpose={purpose}
+          assetId={resultAssetId}
           campaignLabel={campaigns
             .map(id => CAMPAIGNS.find(c => c.id === id)?.label)
             .filter((s): s is string => !!s)
@@ -309,10 +313,11 @@ export function CopyTab() {
 }
 
 function ResultDisplay({
-  text, purpose, campaignLabel, structured, copiedKey, onCopy,
+  text, purpose, assetId, campaignLabel, structured, copiedKey, onCopy,
 }: {
   text: string
   purpose: AssetPurpose
+  assetId: string | null
   campaignLabel: string
   structured: boolean
   copiedKey: string | null
@@ -321,6 +326,7 @@ function ResultDisplay({
   const sections = structured ? parseSections(text) : []
   const useStructured = structured && sections.length > 0
   const showSheetPush = purpose === 'ad'
+  const showPublish = (purpose === 'fb_post' || purpose === 'post') && !!assetId
 
   return (
     <div className="space-y-3">
@@ -329,6 +335,15 @@ function ResultDisplay({
         <div className="flex items-center gap-3">
           {showSheetPush && (
             <SheetPushButton copyText={text} campaignLabel={campaignLabel} />
+          )}
+          {showPublish && (
+            <a
+              href={`/publish?assetId=${assetId}`}
+              className="text-xs inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-border hover:border-foreground hover:text-foreground transition-colors"
+              title="帶這篇文案到發布頁,選圖後一鍵發到粉專"
+            >
+              <Send size={12} /> 發布貼文
+            </a>
           )}
           <button
             onClick={() => onCopy('__all__', text)}

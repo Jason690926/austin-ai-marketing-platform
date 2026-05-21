@@ -65,6 +65,32 @@ export interface ScheduledPost {
   created_at: string
 }
 
+// 自動發文(migration 005 posts 表)— 每發一個 Page 一列
+export type PublishStatus = 'success' | 'failed'
+
+export interface Post {
+  id: string
+  user_id: string
+  asset_id: string | null
+  copy_text: string
+  page_id: string
+  page_name: string
+  meta_post_id: string | null
+  status: PublishStatus
+  error_message: string | null
+  published_at: string
+}
+
+// /publish 發布 API 回傳的逐 Page 結果
+export interface PublishPageResult {
+  page_id: string
+  page_name: string
+  status: PublishStatus
+  meta_post_id: string | null
+  error: string | null
+  attempts: number
+}
+
 export type InputMode = 'scene' | 'reference' | 'freeform'
 export type StylePreset = 'hotel_dark' | 'cozy_warm' | 'minimal_clean' | 'outdoor_natural' | 'auto'
 export type SizePreset = '1080x1080' | '1080x1350' | '1080x1920' | '1200x675' | '1200x628' | '1920x800'
