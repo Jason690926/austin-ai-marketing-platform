@@ -47,7 +47,15 @@ export async function POST(request: Request) {
         body.referenceImageBase64.match(/^data:([^;]+);base64,/)?.[1] ||
         'image/jpeg'
       parts.push({ inlineData: { data: raw, mimeType: mime } })
-      parts.push({ text: '請參考這張圖片的氛圍、光線與色調，讓文案與其情境相呼應。' })
+      parts.push({
+        text: [
+          '【參考圖片指令】這張圖片是本次文案的主視覺核心，請務必：',
+          '1. 先辨識圖中的「主角」—— 聯名授權角色（如 SNOOPY 等）、具體商品、或人物情境。',
+          '2. 將辨識到的主角寫成文案主軸：聯名角色須在文案中點名並發揮「品牌 × 角色」聯名亮點；商品則以其外觀與材質質感為描述主體。',
+          '3. 圖片的氛圍、光線、色調僅作為情緒基調輔助，不可取代主角。',
+          '4. 只描述圖中實際看得到的元素，不杜撰；不確定角色名稱時用一般性描述帶過，不要猜錯。',
+        ].join('\n'),
+      })
     }
 
     const result = await model.generateContent(parts)

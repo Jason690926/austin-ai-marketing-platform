@@ -164,7 +164,7 @@ export function CopyTab() {
       <div>
         <Label className="text-sm font-medium mb-1 block">
           參考圖片
-          <span className="font-normal text-muted-foreground ml-1">（選填，AI 將分析圖片氛圍產出更貼合的文案）</span>
+          <span className="font-normal text-muted-foreground ml-1">（選填，AI 會辨識圖中角色／商品並寫成文案主軸）</span>
         </Label>
 
         {imagePreview ? (
