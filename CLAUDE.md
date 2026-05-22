@@ -62,7 +62,7 @@ npx tsc --noEmit     # 型別檢查（每次改完跑）
 - 專案擁有者是 Austin，使用者代為開發且**全權做主** — 不要提醒「與 Austin 確認」。
 - 不擅自 commit / push；使用者要求才做。
 
-## 目前狀態（2026-05-21）
+## 目前狀態（2026-05-22）
 
 已可運作：
 - 真實 Supabase 登入
@@ -73,6 +73,7 @@ npx tsc --noEmit     # 型別檢查（每次改完跑）
   - **主關鍵字** 欄位（廣告 / SEO 顯示）
   - **CTA 類型** 4 卡片（電商 / 來電 / 來店 / 其他，僅 Meta 廣告）
   - 結果區塊化顯示 + 每區獨立複製
+  - **產生結果可內嵌編輯**（「編輯」鈕 → textarea 自由增刪文字 → 儲存同步更新 Supabase 素材庫；結構化用途依新文字重新分區）
   - **Meta 廣告 → Google Sheet 一鍵推送**（含 frame 複製、orphan smart skip、主標題二選一 radio、字數限制 25/30、frame 狀態 debug）
 - `/library` 素材庫：**月份 dashboard 兩層**（tier 1 月份資訊卡含類型/品牌/熱門用途；tier 2 進入月份後篩選 + grid）
 - **自動發文**（側邊欄「自動發文」分群）：
@@ -80,6 +81,7 @@ npx tsc --noEmit     # 型別檢查（每次改完跑）
   - `/posts` 發文紀錄：每發一個 Page 一列,顯示成功/失敗 + Meta 連結 + 錯誤訊息
   - 失敗處理：逐家發、成功略過失敗、跑完重試失敗清單第 2 次、再失敗則停並標紅等人工
   - 單一 Page 階段：Page 憑證由 `.env.local` 提供;已實測發文成功（測試粉專 AZING HOME）
+  - ⚠️ 2026-05-22 開發者帳號一度被 Meta 風控凍結（連帶 token 失效、貼文隱形），解封後全部恢復;詳見記憶 `project_meta_account_flag_incident`
 
 待辦：#2 Imagen 3 產圖、#4 FB Pages 管理（多經銷商 token DB 表）、#5 排程 UI。
 
@@ -91,7 +93,12 @@ npx tsc --noEmit     # 型別檢查（每次改完跑）
 
 1. **參考圖文案品質差**（2026-05-22 修）：上傳聯名角色圖（如 SNOOPY）時，文案只講品牌、忽略圖中主角。修法：`copywriter.ts` 系統 prompt 新增「參考圖片判讀規則」段（辨識主角→寫成文案主軸→氛圍只當輔助→不杜撰）；`route.ts` 參考圖指令從單行「參考氛圍/光線/色調」改為 5 點強指令；`copy-tab.tsx` 上傳欄說明同步更新。
 
-### 改動歷程（2026-05-20 ~ 05-21）
+### 改動歷程（2026-05-20 ~ 05-22）
+
+**第八輪：參考圖判讀修復 + 結果內嵌編輯（2026-05-22）**
+- 修「參考圖文案品質差」：`copywriter.ts` 系統 prompt 加「參考圖片判讀規則」段、`route.ts` 參考圖指令改 5 點強指令、`copy-tab.tsx` 上傳欄說明更新（commit `6d36d89`）。
+- 產生結果新增「編輯」鈕：`ResultDisplay` 加編輯模式,textarea 自由增刪文字,儲存時 client-side 寫回 `assets.copy_text`(同素材庫星號/刪除模式)(commit `f1492ea`)。
+- Meta 開發者帳號被風控凍結事件(非程式問題,解封後恢復) — 詳見記憶。
 
 **第一輪：scaffold 殘留清除**
 - `copywriter.ts` `PURPOSE_GUIDE.web_brand` 移除「百年德國工藝」殘留。
