@@ -13,7 +13,8 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
-import { ImagePlus, X, Copy, Check, ChevronDown, ChevronUp, Sheet, ExternalLink, Send } from 'lucide-react'
+import { ImagePlus, X, Copy, Check, ChevronDown, ChevronUp, Sheet, ExternalLink, Send, Pencil } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 import type { AssetStore, AssetPurpose, CtaType } from '@/types'
 
 const CTA_TYPES: { value: CtaType; label: string; hint: string }[] = [
@@ -306,6 +307,7 @@ export function CopyTab() {
           structured={isStructuredPurpose(purpose)}
           copiedKey={copiedKey}
           onCopy={copyChunk}
+          onTextChange={setResult}
         />
       )}
     </div>
@@ -313,7 +315,7 @@ export function CopyTab() {
 }
 
 function ResultDisplay({
-  text, purpose, assetId, campaignLabel, structured, copiedKey, onCopy,
+  text, purpose, assetId, campaignLabel, structured, copiedKey, onCopy, onTextChange,
 }: {
   text: string
   purpose: AssetPurpose
@@ -322,39 +324,106 @@ function ResultDisplay({
   structured: boolean
   copiedKey: string | null
   onCopy: (key: string, text: string) => void
+  onTextChange: (next: string) => void
 }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(text)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
+
   const sections = structured ? parseSections(text) : []
   const useStructured = structured && sections.length > 0
   const showSheetPush = purpose === 'ad'
   const showPublish = (purpose === 'fb_post' || purpose === 'post') && !!assetId
 
+  function startEdit() {
+    setDraft(text)
+    setSaveError('')
+    setEditing(true)
+  }
+
+  async function saveEdit() {
+    const next = draft.trim()
+    if (!next) {
+      setSaveError('文案內容不可空白。')
+      return
+    }
+    setSaving(true)
+    setSaveError('')
+    if (assetId) {
+      const supabase = createClient()
+      const { error } = await supabase
+        .from('assets')
+        .update({ copy_text: next })
+        .eq('id', assetId)
+      if (error) {
+        setSaveError(`儲存失敗：${error.message}`)
+        setSaving(false)
+        return
+      }
+    }
+    onTextChange(next)
+    setEditing(false)
+    setSaving(false)
+  }
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <Label className="text-sm font-medium">產生結果</Label>
-        <div className="flex items-center gap-3">
-          {showSheetPush && (
-            <SheetPushButton copyText={text} campaignLabel={campaignLabel} />
-          )}
-          {showPublish && (
-            <a
-              href={`/publish?assetId=${assetId}`}
-              className="text-xs inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-border hover:border-foreground hover:text-foreground transition-colors"
-              title="帶這篇文案到發布頁,選圖後一鍵發到粉專"
+        {!editing && (
+          <div className="flex items-center gap-3">
+            {showSheetPush && (
+              <SheetPushButton copyText={text} campaignLabel={campaignLabel} />
+            )}
+            {showPublish && (
+              <a
+                href={`/publish?assetId=${assetId}`}
+                className="text-xs inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-border hover:border-foreground hover:text-foreground transition-colors"
+                title="帶這篇文案到發布頁,選圖後一鍵發到粉專"
+              >
+                <Send size={12} /> 發布貼文
+              </a>
+            )}
+            <button
+              onClick={startEdit}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1"
+              title="修改文案內容,可自由增刪文字"
             >
-              <Send size={12} /> 發布貼文
-            </a>
-          )}
-          <button
-            onClick={() => onCopy('__all__', text)}
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1"
-          >
-            {copiedKey === '__all__' ? <><Check size={12} /> 已複製全部</> : <><Copy size={12} /> 複製全部</>}
-          </button>
-        </div>
+              <Pencil size={12} /> 編輯
+            </button>
+            <button
+              onClick={() => onCopy('__all__', text)}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1"
+            >
+              {copiedKey === '__all__' ? <><Check size={12} /> 已複製全部</> : <><Copy size={12} /> 複製全部</>}
+            </button>
+          </div>
+        )}
       </div>
 
-      {useStructured ? (
+      {editing ? (
+        <div className="space-y-2">
+          <Textarea
+            value={draft}
+            onChange={e => setDraft(e.target.value)}
+            rows={16}
+            className="text-sm leading-relaxed font-mono"
+          />
+          {saveError && <p className="text-xs text-destructive">{saveError}</p>}
+          <div className="flex items-center gap-2">
+            <Button size="sm" onClick={saveEdit} disabled={saving}>
+              {saving ? '儲存中…' : '儲存修改'}
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setEditing(false)} disabled={saving}>
+              取消
+            </Button>
+            <span className="text-xs text-muted-foreground">
+              可自由增刪文字;{structured ? '【區塊名】標頭請保留以維持分區顯示。' : ''}儲存後會同步更新素材庫。
+            </span>
+          </div>
+        </div>
+      ) : useStructured ? (
         <div className="space-y-2">
           {sections.map((s, i) => {
             const key = `s-${i}`
@@ -379,7 +448,7 @@ function ResultDisplay({
           {text}
         </div>
       )}
-      <p className="text-xs text-muted-foreground">已自動存入素材庫。</p>
+      {!editing && <p className="text-xs text-muted-foreground">已自動存入素材庫。</p>}
     </div>
   )
 }
