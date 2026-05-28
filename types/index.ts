@@ -18,7 +18,8 @@ export type AssetPurpose =
   | 'seo_article'       // SEO / AEO / GEO 內容
 export type AssetSource = 'ai_generated' | 'user_uploaded' | 'reference_remix'
 export type ImageLevel = 'level1_base' | 'level2_complete'
-export type AspectRatio = '1:1' | '4:5' | '9:16' | '16:9' | '1.91:1' | '21:9' | '4:3'
+// Gemini 2.5 Flash Image 支援的比例 enum(去除 1.91:1 — Gemini 不支援)
+export type AspectRatio = '1:1' | '21:9' | '16:9' | '3:2' | '4:3' | '5:4' | '4:5' | '3:4' | '2:3' | '9:16'
 
 export interface Asset {
   id: string

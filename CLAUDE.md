@@ -22,11 +22,12 @@
 - Next.js 14 App Router、TypeScript、Tailwind、shadcn/ui（`components/ui`）
 - 認證/DB：Supabase（`@supabase/ssr`，`lib/supabase/{client,server}.ts`，`middleware.ts` 守衛）
 - AI 文案：Gemini 2.5 Flash（`lib/gemini/client.ts`，模型可用 `GEMINI_COPY_MODEL` 覆寫）
+- AI 產圖：Gemini 2.5 Flash Image / Nano Banana（`lib/gemini/image.ts`，模型可用 `GEMINI_IMAGE_MODEL` 覆寫升 3.1 Flash / 3 Pro）+ `sharp` 後端裁縮到精確 pixel
 - 型別集中於 `types/index.ts`
 - Prompt：
   - `lib/prompts/copywriter.ts` — 文案師人格 + `PURPOSE_GUIDE` + `buildCopyBrief`
   - `lib/prompts/brand-knowledge.ts` — 兩品牌知識 + 大小寫鐵律
-  - `lib/prompts/scene-templates.ts` — 圖片生成用場景模板（文案 tab 不再用）
+  - `lib/prompts/scene-templates.ts` — 圖片生成 prompt 中樞：5 個場景模板 + `buildPrompt`(L1/L2) + `buildLevel3Prompt`(L3) + 品牌專屬 aesthetic anchors + 人物/道具/字型 direction + Lifestyle archetypes + outpaint helper
 - Copy 邏輯：
   - `lib/copy/campaigns.ts` — 全年 27 個行銷檔期 + 智能排序
   - `lib/copy/parse-sections.ts` — 解析【區塊名】結構化輸出
@@ -36,12 +37,17 @@
 - Meta 自動發文（發貼文到 FB Page）：
   - `lib/meta/client.ts` — Graph API client，發圖文貼文到 `/{page-id}/photos`
   - `app/api/posts/publish/route.ts` — 扇出發布 + 失敗重試 + 寫 posts 表
+- AI 產圖（Level 1/2/3）：
+  - `lib/gemini/image.ts` — Gemini 2.5 Flash Image REST client（raw fetch，獨立於文案 SDK，可用 `GEMINI_IMAGE_MODEL` 覆寫；支援 aspectRatio + 最多 3 張參考圖；**內建 retry 機制**：MALFORMED_FUNCTION_CALL / OTHER 重試最多 3 次指數退避）
+  - `lib/prompts/scene-templates.ts` — `buildPrompt`(Level 1/2) / `buildLevel3Prompt`(Level 3) + `planLevel3Variations`；含品牌專屬 `BRAND_AESTHETIC_ANCHORS`(寢飾走 Kinfolk/MUJI、床墊走 Wallpaper*/Mandarin Oriental)、`HUMAN_DIRECTION`(禁 stock 笑容)、`INTERIOR_PROP_DIRECTION`(禁 IKEA)、`TYPOGRAPHY_DIRECTION`、`QUALITY_FAILSAFE`、`LIFESTYLE_ARCHETYPES_BY_STORE`(品牌專屬 6 個 editorial archetypes)、`buildOutpaintNote`(ref 比例 ≠ 輸出比例自動 inject)
+  - `app/api/generate/image/route.ts` — multipart 接 level/mode/store/sizes/customSize/adContent/productBrief/catalogCount/lifestyleCount + 商品圖/參考圖；每 target 並行(`Promise.all`);用 **sharp** 量參考圖比例算 outpaint + 對所有輸出 cover fit 裁到精確 pixel(連 preset 也走 sharp)
 - API：
   - `app/api/generate/copy/route.ts` — Gemini 文案產生
+  - `app/api/generate/image/route.ts` — 三 Level AI 產圖
   - `app/api/sheets/push-meta-ad/route.ts` — Meta 廣告 → Google Sheet
   - `app/api/posts/publish/route.ts` — 文案 + 圖 → 發到 FB Page
 - 頁面：`app/generator/{image,copy}`、`app/library`（素材庫）、`app/publish`（發布貼文）、`app/posts`（發文紀錄）、`app/login`
-- DB：`supabase/migrations/*.sql`；`supabase/setup.sql` 為 001+002+004 合併的一次性建置（migration 003 加 DELETE RLS 政策、004 加 google_search_ad / pmax_ad purpose、005 加 posts 表）
+- DB：`supabase/migrations/*.sql`；`supabase/setup.sql` 為 001+002+004 合併的一次性建置（migration 003 加 DELETE RLS 政策、004 加 google_search_ad / pmax_ad purpose、005 加 posts 表、006 加 `generated-images` storage bucket + RLS）
 
 ## 開發流程
 
@@ -62,11 +68,23 @@ npx tsc --noEmit     # 型別檢查（每次改完跑）
 - 專案擁有者是 Austin，使用者代為開發且**全權做主** — 不要提醒「與 Austin 確認」。
 - 不擅自 commit / push；使用者要求才做。
 
-## 目前狀態（2026-05-22）
+## 目前狀態（2026-05-28）
 
 已可運作：
 - 真實 Supabase 登入
 - `/api/generate/copy`：Gemini 文案，**8 種 purpose**（Meta 廣告 / Google 搜尋廣告 RSA / Google 多素材廣告 PMax·Demand Gen·Display / FB 貼文 / IG 貼文 / 品牌故事 / 商品介紹 / SEO·AEO·GEO）
+- `/api/generate/image`：**Gemini 圖像產出 — 3 個 Level**：
+  - **Level 1 底圖**：3 模式（場景模板 / 參考圖 / 自由描述），無文字、留白給後製
+  - **Level 2 完整廣告**：使用者填 4 欄位（主標 / 副標 / 背書 / 賣點 ×3），AI 把文字燒進圖
+  - **Level 3 AI 全權自主**：使用者只給商品 brief + catalog/lifestyle 變體數，AI 自己想場景、寫文案、設計版面；6 個 brand-specific lifestyle archetypes 自動輪替（寢飾走 Kinfolk / MUJI，床墊走 Wallpaper* / Mandarin Oriental）
+  - **商品圖**（全 Level 適用）：上傳實際商品照→AI 保留商品原樣只重生背景
+  - **參考圖**（reference 模式）：上傳場景參考；ref 比例 ≠ 輸出比例時後端用 sharp 量比例自動加 outpaint 指令
+  - **6 種預設尺寸 + 自訂像素**（256-4096 整數），所有輸出 sharp cover 裁到精確 pixel
+  - 圖檔上 Supabase Storage `generated-images` bucket（用 user_id 分資料夾走 RLS）
+  - 自動寫入素材庫；商品圖優先存 `assets.reference_image_url`
+  - 結果區每張有「下載」鈕（fetch as blob 繞跨網域）+「素材庫」連結
+  - **重試機制**：Gemini 偶發 `MALFORMED_FUNCTION_CALL` / `OTHER` finishReason → 最多重試 3 次（指數退避 500ms→2000ms）
+  - **預設模型** `gemini-2.5-flash-image`（standard 級中文字渲染弱），建議 `.env.local` 加 `GEMINI_IMAGE_MODEL=gemini-3.1-flash-image-preview`（4K、advanced 級、$0.045/張）
 - 文案產生器 UI：
   - 用途卡片分群（社群 / 廣告 / 官網·SEO）
   - **行銷檔期 chip**（年度 27 個檔期，依當月智能排序，分節日/百貨/季節 3 色）
@@ -83,17 +101,40 @@ npx tsc --noEmit     # 型別檢查（每次改完跑）
   - 單一 Page 階段：Page 憑證由 `.env.local` 提供;已實測發文成功（測試粉專 AZING HOME）
   - ⚠️ 2026-05-22 開發者帳號一度被 Meta 風控凍結（連帶 token 失效、貼文隱形），解封後全部恢復;詳見記憶 `project_meta_account_flag_incident`
 
-待辦：#2 Imagen 3 產圖、#4 FB Pages 管理（多經銷商 token DB 表）、#5 排程 UI。
+待辦：#4 FB Pages 管理（多經銷商 token DB 表）、#5 排程 UI。
+
+#2 AI 產圖 Level 1-3 全套：2026-05-26 完成（單日從 0 → Level 1/2/3 全到位 + 商品圖 + 自訂像素 + 下載 + 品牌專屬美學）。模型用 Gemini 2.5 Flash Image (Nano Banana)，非規格原訂的 Imagen — Imagen 4 沒免費層且純 T2I 無法吃參考圖。
 
 ### 已知問題（下一步要處理）
 
-（目前無）
+- **中文字渲染品質**：`gemini-2.5-flash-image` (standard 級) 中文字常錯字 / 變形，6 字內較穩、超過 12 字就崩。建議升 `gemini-3.1-flash-image-preview`（advanced 級，付費 $0.045/張）。終極解法可能要走「AI 留位 + 後端字體渲染器疊字」混合方案。
+- **Lifestyle 圖偶爾仍 stock photo 感**：已 prompt 強化（HUMAN_DIRECTION + 6 個 brand-specific editorial archetypes，明列「不對鏡頭笑」「individual characterful faces」），但 model 限制下偶爾仍出現「亞洲新婚夫妻」trope。若仍不夠 editorial，下一步要嘛升 3 Pro，要嘛在 archetype 加更具體 model casting 描述。
 
 ### 已修問題
 
 1. **參考圖文案品質差**（2026-05-22 修）：上傳聯名角色圖（如 SNOOPY）時，文案只講品牌、忽略圖中主角。修法：`copywriter.ts` 系統 prompt 新增「參考圖片判讀規則」段（辨識主角→寫成文案主軸→氛圍只當輔助→不杜撰）；`route.ts` 參考圖指令從單行「參考氛圍/光線/色調」改為 5 點強指令；`copy-tab.tsx` 上傳欄說明同步更新。
 
-### 改動歷程（2026-05-20 ~ 05-22）
+### 改動歷程（2026-05-20 ~ 05-26）
+
+**第九輪:AI 產圖完整三 Level 系統(2026-05-26 一日狂飆)**
+
+單日把 #2「AI 產圖」從 0 → 完整可用,跨 7 次迭代。歷程重點(細節見各 commit / 程式碼,這裡只記決策與踩過的雷):
+
+1. **模型選型**:原規格 Imagen 3 換成 **Gemini 2.5 Flash Image (Nano Banana)** — Imagen 4 系列無免費層且純 T2I 無法吃參考圖;Gemini 系列原生支援最多 3 張參考圖。可用 `GEMINI_IMAGE_MODEL` 覆寫升 3.1 ($0.045) / 3 Pro ($0.134)。
+2. **基礎串接**:`lib/gemini/image.ts`(raw fetch,避免升 `@google/genai` SDK 影響文案路徑) + `app/api/generate/image/route.ts`(multipart, Promise.all 並行) + `components/generator/image-tab.tsx` UI 串好 + `supabase/migrations/006_create_storage_bucket.sql`(public bucket + 路徑前綴 RLS)。
+3. **aspectRatio 欄位 bug**:第一次 1200x675 失敗回 400,我原本用 `responseFormat.image.aspectRatio` 是錯欄位,正解是 `imageConfig.aspectRatio`。
+4. **商品圖 vs 參考圖** 拆成兩個概念:商品圖(全 Level 適用,model 第 1 張 ref,鐵律保留商品本身不變只重生背景)/ 參考圖(reference 模式,model 第 2 張 ref,定構圖氛圍)。
+5. **下載 + 自訂像素**:下載用 fetch as blob 觸發(繞 Supabase 跨網域 download 限制);自訂尺寸 256-4096,後端用 `closestSupportedRatio` 算最接近的 Gemini 支援比例 → 餵 model → **裝 sharp,所有輸出 cover fit 裁到精確 pixel**(連 preset 也走 sharp,不再是 1024 近似)。`AspectRatio` 型別擴充到 10 個 Gemini 支援值,移除不支援的 1.91:1。
+6. **Level 2 完整廣告**:`AdContent` interface(主標/副標/背書/賣點×3),`buildTextRenderingBlock` 強制繁中、品牌字型調性(Sleeptrain=luxury serif / AUSTIN HOME=warm sans)、品牌大小寫鐵律、不可加沒輸入的字。Level 2 用 `LEVEL_2_NEGATIVE_PROMPT`(允許文字)取代原 `NEGATIVE_PROMPT`(禁文字)。
+7. **Level 3 AI 全權自主**:`buildLevel3Prompt`(分 catalog / lifestyle 兩種變體),`planLevel3Variations` 把 catalogCount + lifestyleCount 展成 variation 列表。UI 加第 3 個 level 選項,選 Level 3 時隱藏 mode/scene/reference/freeform/style/Level 2 區塊(全 AI 自己決定),只顯示 brief textarea + 變體數計數器。每變體 × 每尺寸 = 一張圖(e.g. 3 變體 × 2 尺寸 = 6 張)。
+8. **設計感像 canva → 品牌專屬 aesthetic anchor**:User 抱怨「場景廉價」,改寫 prompt 加 `BRAND_AESTHETIC_ANCHORS` (寢飾走 Kinfolk/MUJI/Apartamento/Schemata 路線;床墊走 Wallpaper*/Mandarin Oriental/Architectural Digest/Restoration Hardware 路線),`HUMAN_DIRECTION`(不對鏡頭、不互看、不齒笑、不 stock 新婚夫妻 trope、companionable silence),`INTERIOR_PROP_DIRECTION`(禁 IKEA、禁 blown-out windows、禁 model-home sterility),`TYPOGRAPHY_DIRECTION`(editorial 字型 only、禁 Canva 字、禁 drop-shadow),`QUALITY_FAILSAFE`(11 條禁區明列)。重寫 `LIFESTYLE_ARCHETYPES_BY_STORE` 為品牌專屬 6 個 archetype,每個內嵌 雜誌 reference + 年齡 + 視線方向 + wardrobe + 建築 + 道具 + 燈光 + 心境。aesthetic block 從 prompt 結尾移到 scene 前(優先吸收)。
+9. **參考圖 1:1 → 16:9 輸出 outpaint**:後端用 `sharp().metadata()` 量參考圖實際 W×H → `closestSupportedRatio` 算字串 → 跟輸出比例比,不同時 inject `buildOutpaintNote`(明確告訴 model「ref 是 1:1、輸出 16:9,延伸場景到兩邊」)。
+10. **MALFORMED_FUNCTION_CALL bug**:第 8 點長 prompt + `=== ... ===` 區隔 + dash bullets 觸發 Gemini 把 prompt 誤判為 function call 解析失敗(已知 Google flaky bug)。修法:(a) `generateImage` 包 retry,偵測 MALFORMED_FUNCTION_CALL / OTHER 重試最多 3 次(指數退避 500→2000ms);(b) prompt 結構從「JSON-array-like」改寫成 prose 段落,拿掉 `===` 與 dash bullets。
+
+⚠️ 使用者需自行:
+- (a) Supabase SQL Editor 跑 migration 006 建 bucket+RLS
+- (b) `.env.local` 設 `GEMINI_API_KEY`(產圖免費 quota 實測為準,2.5 Flash Image 付費 $0.039/張)
+- (c) 建議加 `GEMINI_IMAGE_MODEL=gemini-3.1-flash-image-preview` 升級中文字渲染品質
 
 **第八輪：參考圖判讀修復 + 結果內嵌編輯（2026-05-22）**
 - 修「參考圖文案品質差」：`copywriter.ts` 系統 prompt 加「參考圖片判讀規則」段、`route.ts` 參考圖指令改 5 點強指令、`copy-tab.tsx` 上傳欄說明更新（commit `6d36d89`）。
