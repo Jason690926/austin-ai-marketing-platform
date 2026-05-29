@@ -116,6 +116,21 @@ export interface GenerateImageRequest {
 
 export type CtaType = 'ecommerce' | 'call' | 'visit' | 'info'
 
+// 行銷大師語氣 persona（A）— brand_default = 不覆寫,沿用品牌既有語氣
+export type ToneStyle =
+  | 'brand_default'   // 品牌預設語氣
+  | 'concise'         // 精簡
+  | 'humorous'        // 風趣幽默
+  | 'ogilvy'          // David Ogilvy — 事實數據說服、標題決勝
+  | 'wieden_kennedy'  // Wieden+Kennedy — 賣態度、情緒張力
+  | 'bbdo'            // BBDO — 史詩敘事、情感驅動
+  | 'gary_halbert'    // Gary Halbert — 強鉤子、老友口吻、緊迫感
+
+// 受眾策略分流（B）— 改變文案切入角度,對應廣告漏斗
+export type AudienceStrategy =
+  | 'new_customer'    // 找尋新客 — PAS 痛點共鳴 + 建立信任 + 核心獨特價值
+  | 'remarketing'     // 主顧再行銷 — 好感回饋 + 老友敘舊 + 破除回購猶豫 + 忠誠專屬感
+
 export interface GenerateCopyRequest {
   store: AssetStore
   purpose: AssetPurpose
@@ -124,7 +139,10 @@ export interface GenerateCopyRequest {
   additionalNotes?: string
   keywords?: string         // 主關鍵字（廣告 / SEO 用，可逗號分隔）
   campaigns?: string[]      // 行銷檔期 id 多選（lib/copy/campaigns.ts）
+  customCampaign?: string   // 自訂行銷檔期描述（與 campaigns chip 並存）
   ctaType?: CtaType         // 廣告類 CTA 類型偏好（影響 CTA 區塊用字）
+  toneStyle?: ToneStyle           // 行銷大師語氣 persona（A）
+  audienceStrategy?: AudienceStrategy  // 受眾策略：新客 / 再行銷（B）
   // Optional reference image (data URL or raw base64) for multimodal mood analysis
   referenceImageBase64?: string
   referenceImageMimeType?: string

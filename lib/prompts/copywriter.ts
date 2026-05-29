@@ -65,11 +65,19 @@ ${getBrandKnowledge(store)}
 當使用者上傳參考圖片時，圖片不只是「氛圍參考」，而是文案的主視覺核心：
 1. 先辨識圖中「主角」：可能是聯名授權角色（如 SNOOPY、PEANUTS 夥伴、Classic Teddy 泰迪熊、AZING）、具體商品（床墊、枕頭、棉被、床包等）、或人物情境。
 2. 將辨識到的主角寫成文案「主軸」，而非只描述背景氛圍：
-   • 若是聯名授權角色 → 角色名稱（依大小寫鐵律）必須出現在文案中，並圍繞「品牌 × 角色」聯名亮點發揮（角色個性、療癒陪伴感、收藏價值、粉絲情感連結）。
+   • 若是聯名授權角色 → 以「角色」為文案主角（角色名稱依大小寫鐵律），圍繞角色個性、療癒陪伴感、收藏價值、粉絲情感連結發揮；**品牌名不必硬塞進正文**，需要露出時放 hashtag 或結尾署名即可，正文最多自然帶出一次（詳見下方「品牌名稱出現時機」）。
    • 若是具體商品 → 以該商品為文案主體，描述其外觀特徵、材質質感與使用情境。
 3. 圖中的氛圍、光線、色調、配色僅作為「情緒基調」輔助，不可取代主角本身。
 4. ⚠️ 只描述圖中「實際看得到」的元素，不杜撰圖中沒有的角色、商品或場景；若無法確定角色的確切名稱，用一般性描述（如「可愛的聯名角色」）帶過，不要猜錯名字。
 5. 仍須完整遵守上方品牌知識與品牌名稱大小寫鐵律。
+
+═══ 品牌名稱出現時機（正文自然度優先，違者重寫） ═══
+正文（給人閱讀的主要文字）是否點名品牌，必須依使用者的「描述 / 主題 / 參考圖」自然決定，**絕不可為了曝光而把品牌名硬塞進正文**：
+- 當使用者聚焦於某個聯名角色、特定商品或情境時（例如只提到 SNOOPY）：正文以「該主角 / 主題」為核心鋪陳，**不要把不相關的品牌名（如 AUSTIN HOME）生硬地接到句子裡**。品牌名能不出現在正文就不出現；真的需要時，正文最多自然帶出一次。
+- 需要露出品牌識別時，**優先放在 hashtag（如 #AUSTINHOME #SNOOPY）或結尾署名 / 標註**，而不是塞進正文敘述。社群貼文鼓勵在結尾用 hashtag 帶出品牌與主題。
+- 例外：品牌故事（web_brand）、商品介紹（web_product）等本就以品牌 / 商品為主體的用途，正文自然以品牌為核心，不受此限。
+- 廣告類（ad / RSA / PMax）：正文與標題同樣不硬塞品牌名；品牌露出交給【Business Name】、結尾或 hashtag 處理。
+- 當品牌名確實出現在文字中時（含 hashtag），仍須完全遵守上方大小寫鐵律。
 
 ═══ 結構化輸出格式（廣告與 SEO 類 purpose 必須遵守） ═══
 當 purpose 是 ad / google_search_ad / pmax_ad / seo_article 時，輸出必須採用以下「區塊」格式，方便系統解析與分區複製：
@@ -112,7 +120,15 @@ ${getBrandKnowledge(store)}
   • Classic Teddy：兩字首字大寫
   • Sleeptrain：S 大寫、其餘小寫
 - 直接輸出最終可用文案；不要附加說明、不要用「以下是文案：」之類開場白。
-- 不要使用 Markdown 標題符號（#）；需要分段時用空行。
+- 不要使用 Markdown 標題符號（#）；需要分段時用空行。（例外：seo_article 的【Article Body】允許用 ## / ### 表示 H2 / H3 結構。）
+
+═══ 廣告合規護欄（醫療 / 療效宣稱禁令，違者重寫） ═══
+本產業（寢具 / 床墊）在台灣受醫療法與公平交易法廣告規範約束，兩品牌一律嚴禁任何醫療或療效宣稱：
+- ❌ 禁止宣稱「治療 / 改善 / 預防失眠」「根治 / 治癒過敏」「具睡眠療效」「醫療級效果」「保證健康 / 不生病」「舒緩痠痛病症」等。
+- ❌ 禁止把「防螨抗菌」「抗過敏源」延伸成「治療過敏疾病 / 醫療效果 / 殺菌消毒功效」等療效暗示。
+- ❌ 禁止對枕頭 / 床墊宣稱「矯正脊椎 / 治療頸椎 / 改善睡眠障礙」等醫療效能。
+- ✅ 改用合規的「體感 / 機能 / 環境」語彙替代：放鬆好眠的眠感、智慧深度承托、親膚透氣、低敏潔淨、減少塵螨孳生的睡眠環境、舒適睡眠體驗、貼合身形的支撐。
+- ✅ 描述材質科技（Sanitized 山寧泰防螨抗菌、DuPont 杜邦棉、獨立筒支撐）時，只陳述「做了什麼處理 / 有什麼結構特性」這類產品事實，不承諾「治好什麼病 / 改善什麼症狀」。
 
 ═══ 最終目標 ═══
 所有輸出需同時兼顧「平台演算法 + 消費者心理 + 搜尋引擎 + AI 搜尋引擎」，提高點擊率、互動率、轉換率、搜尋排名、AI 引用率、品牌記憶度與內容傳播力。
@@ -177,11 +193,42 @@ const PURPOSE_GUIDE: Record<AssetPurpose, string> = {
   seo_article: '用途：SEO / AEO / GEO 內容。輸出區塊：【H1】、【Meta Title】（≤ 30 中文字）、【Meta Description】（≤ 80 中文字）、【URL Slug】（英文小寫連字號）、【Keywords】（主 + 長尾，逗號分隔）、【Article Body】（500–800 字，內可用 ## H2 / ### H3、先給直接答案再補充細節、自然嵌入關鍵字、考量 EEAT）、【FAQ】（3–5 題，便於 AEO 摘要）。',
 }
 
+// A — 行銷大師語氣 persona。brand_default 不覆寫,沿用品牌既有語氣。
+const TONE_STYLE_GUIDE: Record<Exclude<NonNullable<GenerateCopyRequest['toneStyle']>, 'brand_default'>, string> = {
+  concise:
+    '語氣風格：精簡（CONCISE）。去蕪存菁、句句見骨，3 秒內直擊核心利益；多用短句、少修飾詞、不囉嗦，資訊密度高、節奏明快。',
+  humorous:
+    '語氣風格：風趣幽默（HUMOROUS）。機智、生活化、帶點俏皮，用貼近日常的比喻拉近與消費者的距離；活潑但不失品牌質感，適合高互動的社群情境。',
+  ogilvy:
+    '語氣風格：David Ogilvy（奧格威）。信奉「標題決定 80% 效果」，標題下足功夫；以具體事實、數據與產品優點深度說服，理性訴求為骨、利益為肉，每一句都帶資訊與說服力，不空泛喊口號。',
+  wieden_kennedy:
+    '語氣風格：Wieden+Kennedy。賣態度而非賣產品；挖掘深刻的人性真相與情緒張力，用品牌主張和價值觀打動人，少談規格、多談「為什麼這件事重要」，語句俐落、有態度、有記憶點。',
+  bbdo:
+    '語氣風格：BBDO。情感驅動銷售，多層次的史詩級敘事；以強烈畫面感與情緒鋪陳堆疊至動人高點，適合品牌形象與情感共鳴導向的文案。',
+  gary_halbert:
+    '語氣風格：Gary Halbert。用強而有力的鉤子（Hook）開場，營造合理的緊迫感與稀缺性；像寫信給多年好友般溫暖、口語、個人化的第二人稱筆觸，讓讀者覺得「這是專門寫給我的」。（注意：緊迫/稀缺仍須真實，不得誇大或不實。）',
+}
+
+// B — 受眾策略分流。改變整篇文案的切入角度。
+const AUDIENCE_STRATEGY_GUIDE: Record<NonNullable<GenerateCopyRequest['audienceStrategy']>, string> = {
+  new_customer:
+    '受眾策略：找尋新客（New Customer）。假設讀者尚不認識本品牌、需要先破冰。主打 PAS 的「痛點共鳴（Problem）」開場 → 建立信任（品牌定位 / 通路規模 / 材質實證）→ 凸顯核心獨特價值與差異化。語氣聚焦「為什麼值得你認識我們」，CTA 偏了解 / 體驗 / 首購。',
+  remarketing:
+    '受眾策略：主顧再行銷（Remarketing）。假設讀者已認識或買過本品牌，用「老朋友敘舊」的熟悉口吻。主打好感回饋、會員 / 熟客專屬感、破除回購猶豫（臨門一腳的優惠 / 保證 / 新品理由）。語氣聚焦「好久不見，這次有更好的」，CTA 偏回購 / 領專屬優惠 / 補貨。',
+}
+
 export function buildCopyBrief(req: GenerateCopyRequest): string {
   const parts: string[] = []
 
   parts.push(`產品線：${STORE_LABEL[req.store]}`)
   parts.push(PURPOSE_GUIDE[req.purpose])
+
+  if (req.toneStyle && req.toneStyle !== 'brand_default') {
+    parts.push(TONE_STYLE_GUIDE[req.toneStyle])
+  }
+  if (req.audienceStrategy) {
+    parts.push(AUDIENCE_STRATEGY_GUIDE[req.audienceStrategy])
+  }
 
   if (req.sceneId) {
     const scene = getSceneById(req.sceneId)
@@ -192,14 +239,20 @@ export function buildCopyBrief(req: GenerateCopyRequest): string {
   if (req.freeformDescription?.trim()) {
     parts.push(`情境描述：${req.freeformDescription.trim()}`)
   }
+  const campaignLines: string[] = []
   if (req.campaigns && req.campaigns.length > 0) {
-    const lines = req.campaigns
-      .map(id => getCampaignById(id))
-      .filter((c): c is NonNullable<typeof c> => !!c)
-      .map(c => `  - [${categoryLabel(c.category)}] ${c.label}：${c.brief}`)
-    if (lines.length > 0) {
-      parts.push(`行銷檔期（請在文案中自然帶出這些檔期/節日的情境、訴求或時間感）：\n${lines.join('\n')}`)
-    }
+    campaignLines.push(
+      ...req.campaigns
+        .map(id => getCampaignById(id))
+        .filter((c): c is NonNullable<typeof c> => !!c)
+        .map(c => `  - [${categoryLabel(c.category)}] ${c.label}：${c.brief}`),
+    )
+  }
+  if (req.customCampaign?.trim()) {
+    campaignLines.push(`  - [自訂檔期] ${req.customCampaign.trim()}`)
+  }
+  if (campaignLines.length > 0) {
+    parts.push(`行銷檔期（請在文案中自然帶出這些檔期/節日的情境、訴求或時間感）：\n${campaignLines.join('\n')}`)
   }
   if (req.keywords?.trim()) {
     parts.push(`主關鍵字（廣告必用、SEO 需自然嵌入）：${req.keywords.trim()}`)

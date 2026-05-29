@@ -15,7 +15,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
 import { ImagePlus, X, Copy, Check, ChevronDown, ChevronUp, Sheet, ExternalLink, Send, Pencil } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import type { AssetStore, AssetPurpose, CtaType } from '@/types'
+import type { AssetStore, AssetPurpose, CtaType, ToneStyle, AudienceStrategy } from '@/types'
 
 const CTA_TYPES: { value: CtaType; label: string; hint: string }[] = [
   { value: 'ecommerce', label: '電商', hint: '立即購買 / 加入購物車' },
@@ -23,6 +23,29 @@ const CTA_TYPES: { value: CtaType; label: string; hint: string }[] = [
   { value: 'visit',     label: '來店', hint: '來店體驗 / 前往門市' },
   { value: 'info',      label: '其他', hint: '了解更多 / 索取資訊' },
 ]
+
+// A — 行銷大師語氣 persona
+const TONE_STYLES: { value: ToneStyle; label: string; hint: string }[] = [
+  { value: 'brand_default',  label: '品牌預設',        hint: '沿用品牌既有語氣' },
+  { value: 'concise',        label: '精簡',            hint: '去蕪存菁 · 3 秒直擊' },
+  { value: 'humorous',       label: '風趣幽默',        hint: '機智生活 · 高互動' },
+  { value: 'ogilvy',         label: 'Ogilvy',         hint: '事實數據 · 標題決勝' },
+  { value: 'wieden_kennedy', label: 'Wieden+Kennedy', hint: '賣態度 · 情緒張力' },
+  { value: 'bbdo',           label: 'BBDO',           hint: '史詩敘事 · 情感驅動' },
+  { value: 'gary_halbert',   label: 'Gary Halbert',   hint: '強鉤子 · 老友口吻' },
+]
+
+// B — 受眾策略（'' = 不指定）
+const AUDIENCE_STRATEGIES: { value: AudienceStrategy | ''; label: string; hint: string }[] = [
+  { value: '',             label: '不指定',     hint: '通用語氣' },
+  { value: 'new_customer', label: '找新客',     hint: 'PAS 痛點 · 建立信任' },
+  { value: 'remarketing',  label: '主顧再行銷', hint: '老友敘舊 · 破除猶豫' },
+]
+
+// 受眾策略只對「轉換型」用途有意義(社群 + 廣告 + 商品介紹);SEO 文章 / 品牌故事不顯示
+const AUDIENCE_PURPOSES = new Set<AssetPurpose>([
+  'ad', 'google_search_ad', 'pmax_ad', 'post', 'fb_post', 'web_product',
+])
 
 const STORES: { value: AssetStore; label: string }[] = [
   { value: 'mattress', label: '床墊' },
@@ -46,9 +69,12 @@ export function CopyTab() {
   const [store,        setStore]        = useState<AssetStore>('mattress')
   const [purpose,      setPurpose]      = useState<AssetPurpose>('post')
   const [campaigns,    setCampaigns]    = useState<string[]>([])
+  const [customCampaign, setCustomCampaign] = useState('')
   const [showAllCampaigns, setShowAllCampaigns] = useState(false)
   const [keywords,     setKeywords]     = useState('')
   const [ctaType,      setCtaType]      = useState<CtaType>('ecommerce')
+  const [toneStyle,    setToneStyle]    = useState<ToneStyle>('brand_default')
+  const [audienceStrategy, setAudienceStrategy] = useState<AudienceStrategy | ''>('')
   const [instructions, setInstructions] = useState('')
   const [imageFile,    setImageFile]    = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
@@ -62,6 +88,7 @@ export function CopyTab() {
 
   const showKeywords = KEYWORDS_PURPOSES.has(purpose)
   const showCtaType = purpose === 'ad'  // 目前僅 Meta 廣告用
+  const showAudience = AUDIENCE_PURPOSES.has(purpose)
 
   // 智能排序：依當月 (1-12) 把當月/下月檔期排前面
   const currentMonth = useMemo(() => new Date().getMonth() + 1, [])
@@ -109,8 +136,11 @@ export function CopyTab() {
     try {
       const payload: Record<string, unknown> = { store, purpose }
       if (campaigns.length > 0) payload.campaigns = campaigns
+      if (customCampaign.trim()) payload.customCampaign = customCampaign.trim()
       if (showKeywords && keywords.trim()) payload.keywords = keywords.trim()
       if (showCtaType) payload.ctaType = ctaType
+      if (toneStyle !== 'brand_default') payload.toneStyle = toneStyle
+      if (showAudience && audienceStrategy) payload.audienceStrategy = audienceStrategy
       if (instructions.trim()) payload.additionalNotes = instructions.trim()
       if (imageFile) payload.referenceImageBase64 = await fileToDataUrl(imageFile)
 
@@ -156,6 +186,31 @@ export function CopyTab() {
                   ? 'bg-primary text-primary-foreground border-primary'
                   : 'border-border text-muted-foreground hover:border-foreground hover:text-foreground'}`}>
               {s.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Tone style (行銷大師語氣) */}
+      <div>
+        <Label className="text-sm font-medium mb-2 block">
+          語氣風格
+          <span className="font-normal text-muted-foreground ml-1">(選一位行銷大師人格,塑造文案調性)</span>
+        </Label>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {TONE_STYLES.map(t => (
+            <button
+              key={t.value}
+              type="button"
+              onClick={() => setToneStyle(t.value)}
+              className={`text-left px-3 py-2 rounded-lg border transition-colors ${
+                toneStyle === t.value
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'border-border text-muted-foreground hover:border-foreground hover:text-foreground'
+              }`}
+            >
+              <p className="font-medium text-sm">{t.label}</p>
+              <p className={`text-[11px] mt-0.5 ${toneStyle === t.value ? 'opacity-70' : 'text-muted-foreground'}`}>{t.hint}</p>
             </button>
           ))}
         </div>
@@ -212,6 +267,33 @@ export function CopyTab() {
           </div>
         ))}
       </div>
+
+      {/* Audience strategy (轉換型用途) */}
+      {showAudience && (
+        <div>
+          <Label className="text-sm font-medium mb-2 block">
+            受眾策略
+            <span className="font-normal text-muted-foreground ml-1">(決定文案切入角度:對新客還是對熟客說話)</span>
+          </Label>
+          <div className="grid grid-cols-3 gap-2">
+            {AUDIENCE_STRATEGIES.map(a => (
+              <button
+                key={a.value || 'unset'}
+                type="button"
+                onClick={() => setAudienceStrategy(a.value)}
+                className={`text-left px-3 py-2 rounded-lg border transition-colors ${
+                  audienceStrategy === a.value
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'border-border text-muted-foreground hover:border-foreground hover:text-foreground'
+                }`}
+              >
+                <p className="font-medium text-sm">{a.label}</p>
+                <p className={`text-[11px] mt-0.5 ${audienceStrategy === a.value ? 'opacity-70' : 'text-muted-foreground'}`}>{a.hint}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* CTA type (only for Meta 廣告) */}
       {showCtaType && (
@@ -270,6 +352,8 @@ export function CopyTab() {
         onToggle={toggleCampaign}
         showAll={showAllCampaigns}
         onShowAllToggle={() => setShowAllCampaigns(s => !s)}
+        customCampaign={customCampaign}
+        onCustomChange={setCustomCampaign}
       />
 
       {/* Instructions */}
@@ -462,6 +546,7 @@ const CATEGORY_DOT: Record<Campaign['category'], string> = {
 function CampaignPicker({
   currentMonth, currentUpcoming, otherCampaigns,
   selected, onToggle, showAll, onShowAllToggle,
+  customCampaign, onCustomChange,
 }: {
   currentMonth: number
   currentUpcoming: Campaign[]
@@ -470,6 +555,8 @@ function CampaignPicker({
   onToggle: (id: string) => void
   showAll: boolean
   onShowAllToggle: () => void
+  customCampaign: string
+  onCustomChange: (v: string) => void
 }) {
   const renderChip = (c: Campaign) => {
     const active = selected.includes(c.id)
@@ -533,6 +620,15 @@ function CampaignPicker({
         <span className="inline-flex items-center gap-1"><span className="inline-block w-1.5 h-1.5 rounded-full bg-rose-400" /> 節日</span>
         <span className="inline-flex items-center gap-1"><span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400" /> 百貨檔期</span>
         <span className="inline-flex items-center gap-1"><span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400" /> 季節主題</span>
+      </div>
+
+      <div className="pt-1">
+        <p className="text-xs text-muted-foreground mb-1.5">自訂檔期 (找不到合適的 chip 時,自己描述;可與上方 chip 並用)</p>
+        <Input
+          placeholder="例:週年慶 5/20–6/10 全館 8 折再送收納袋、新店開幕首三日來店禮…"
+          value={customCampaign}
+          onChange={e => onCustomChange(e.target.value)}
+        />
       </div>
     </div>
   )
