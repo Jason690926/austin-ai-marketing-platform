@@ -68,11 +68,15 @@ npx tsc --noEmit     # 型別檢查（每次改完跑）
 - 專案擁有者是 Austin，使用者代為開發且**全權做主** — 不要提醒「與 Austin 確認」。
 - 不擅自 commit / push；使用者要求才做。
 
-## 目前狀態（2026-05-28）
+## 目前狀態（2026-05-29）
 
 已可運作：
 - 真實 Supabase 登入
 - `/api/generate/copy`：Gemini 文案，**8 種 purpose**（Meta 廣告 / Google 搜尋廣告 RSA / Google 多素材廣告 PMax·Demand Gen·Display / FB 貼文 / IG 貼文 / 品牌故事 / 商品介紹 / SEO·AEO·GEO）
+  - **行銷大師語氣 persona**（7 種：品牌預設 / 精簡 / 幽默 / Ogilvy / Wieden+Kennedy / BBDO / Gary Halbert，全用途通用）
+  - **受眾策略**（找新客 PAS 痛點+建立信任 vs 主顧再行銷 老友敘舊+破除回購猶豫；轉換型用途顯示）
+  - **廣告合規護欄**（醫療/療效宣稱禁令 + 合規替代詞庫，兩品牌恆開；防螨抗菌等只能陳述產品特性、不得延伸療效）
+  - **品牌名自然化**：正文是否點名品牌依描述自然決定、不硬塞（只給 SNOOPY 時不會生硬插 AUSTIN），品牌識別優先走 hashtag/署名
 - `/api/generate/image`：**Gemini 圖像產出 — 3 個 Level**：
   - **Level 1 底圖**：3 模式（場景模板 / 參考圖 / 自由描述），無文字、留白給後製
   - **Level 2 完整廣告**：使用者填 4 欄位（主標 / 副標 / 背書 / 賣點 ×3），AI 把文字燒進圖
@@ -87,7 +91,8 @@ npx tsc --noEmit     # 型別檢查（每次改完跑）
   - **預設模型** `gemini-2.5-flash-image`（standard 級中文字渲染弱），建議 `.env.local` 加 `GEMINI_IMAGE_MODEL=gemini-3.1-flash-image-preview`（4K、advanced 級、$0.045/張）
 - 文案產生器 UI：
   - 用途卡片分群（社群 / 廣告 / 官網·SEO）
-  - **行銷檔期 chip**（年度 27 個檔期，依當月智能排序，分節日/百貨/季節 3 色）
+  - **行銷檔期 chip**（年度 27 個檔期，依當月智能排序，分節日/百貨/季節 3 色）+ **自訂檔期描述欄位**（與 chip 並存）
+  - **語氣風格 + 受眾策略選擇器**（見上方 purpose 說明）
   - **主關鍵字** 欄位（廣告 / SEO 顯示）
   - **CTA 類型** 4 卡片（電商 / 來電 / 來店 / 其他，僅 Meta 廣告）
   - 結果區塊化顯示 + 每區獨立複製
@@ -114,7 +119,22 @@ npx tsc --noEmit     # 型別檢查（每次改完跑）
 
 1. **參考圖文案品質差**（2026-05-22 修）：上傳聯名角色圖（如 SNOOPY）時，文案只講品牌、忽略圖中主角。修法：`copywriter.ts` 系統 prompt 新增「參考圖片判讀規則」段（辨識主角→寫成文案主軸→氛圍只當輔助→不杜撰）；`route.ts` 參考圖指令從單行「參考氛圍/光線/色調」改為 5 點強指令；`copy-tab.tsx` 上傳欄說明同步更新。
 
-### 改動歷程（2026-05-20 ~ 05-26）
+### 改動歷程（2026-05-20 ~ 05-29）
+
+**第十輪：文案產生器強化（2026-05-29）— 擷取外部文案器優點**
+
+使用者提供一份外部文案產生器規格（`CreativeCopy AI`），擷取其優點優化本系統。經分析，採用其「語氣 persona / 受眾策略 / 合規護欄」三點（其餘如 RSA 規格、借勢檔期，本系統已更完整）。Structured JSON Output（responseSchema，可解掉「滿配驗證 + parseSections 解析脆弱」）價值最高但屬重構，留待之後單獨做（代號 D）。本輪實作：
+
+1. **A 行銷大師語氣 persona**：`types.ts` 加 `ToneStyle`（7 種）；`copywriter.ts` `TONE_STYLE_GUIDE` 每 persona 一段具體寫作指令、`buildCopyBrief` 注入（`brand_default` 不覆寫）；`copy-tab.tsx` 卡片選擇器（全用途通用）。
+2. **B 受眾策略**：`types.ts` 加 `AudienceStrategy`（new_customer / remarketing）；`copywriter.ts` `AUDIENCE_STRATEGY_GUIDE` 改變切入角度；UI 選擇器只在轉換型用途（ad/RSA/PMax/post/fb_post/web_product）顯示，含「不指定」。
+3. **C 合規護欄**：`copywriter.ts` 系統 prompt 加「廣告合規護欄」段 — 禁治療/改善失眠、根治過敏、療效宣稱、矯正脊椎等；防螨抗菌只能陳述產品特性、不得延伸療效；提供合規替代詞庫。兩品牌恆開、無 UI。
+4. **自訂行銷檔期欄位**：`types.ts` 加 `customCampaign?`；`buildCopyBrief` 把 chip 檔期 + 自訂檔期合併同段；`copy-tab.tsx` `CampaignPicker` 底部加 Input。
+5. **品牌名自然化**：系統 prompt 加「品牌名稱出現時機」段 + 改寫參考圖判讀規則（原強推「品牌 × 角色」）+ `route.ts` 參考圖指令加第 5 點。正文依描述自然決定是否點名品牌、不硬塞，品牌識別優先 hashtag/署名；web_brand/web_product 例外。
+6. **順手修矛盾**：原鐵律「禁用 #」與 seo_article 的【Article Body】要求 ## H2/### H3 衝突 → 明確標註 seo_article 例外。
+
+實測（直連 Gemini 繞 auth 驗證，腳本用後即刪）：Gary Halbert+再行銷+床墊 → 語氣/受眾/防螨護欄全中、未寫 Made in USA；SNOOPY 情境 → 正文聚焦角色、AUSTIN 只在 hashtag。commit `65c9dde`，已推 origin。改動檔案：`types/index.ts`、`lib/prompts/copywriter.ts`、`components/generator/copy-tab.tsx`、`app/api/generate/copy/route.ts`。
+
+⚠️ 待辦補充：**#5 排程 UI** 一度起頭即暫緩（使用者改先優化文案）；關鍵未決點 = 排程到期後「怎麼真的觸發發文」取決於部署環境（本機 npm run dev / Supabase pg_cron / Vercel Cron），且圖片需先落地 Storage。**D（Structured JSON Output）** 為下一個文案優化候選。
 
 **第九輪:AI 產圖完整三 Level 系統(2026-05-26 一日狂飆)**
 
