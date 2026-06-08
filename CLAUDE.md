@@ -119,7 +119,11 @@ npx tsc --noEmit     # 型別檢查（每次改完跑）
 
 1. **參考圖文案品質差**（2026-05-22 修）：上傳聯名角色圖（如 SNOOPY）時，文案只講品牌、忽略圖中主角。修法：`copywriter.ts` 系統 prompt 新增「參考圖片判讀規則」段（辨識主角→寫成文案主軸→氛圍只當輔助→不杜撰）；`route.ts` 參考圖指令從單行「參考氛圍/光線/色調」改為 5 點強指令；`copy-tab.tsx` 上傳欄說明同步更新。
 
-### 改動歷程（2026-05-20 ~ 05-29）
+### 改動歷程（2026-05-20 ~ 06-08）
+
+**環境稽核：skill-cleaner 體檢（2026-06-08）— 非程式改動**
+
+使用者要求評估 `steipete/agent-scripts` 的 skill-cleaner。結論:原版綁 Codex（讀 `~/.codex/...`），不適用 Claude Code；改用社群移植版 [YuzuruS/claude-skill-cleaner](https://github.com/YuzuruS/claude-skill-cleaner)（MIT、唯讀只建議不刪）。clone 到 `%TEMP%` 跑 `node --experimental-strip-types scripts/skill-cleaner.ts --months 3`，跑完已刪除暫存。**體檢結果:環境乾淨** — `~/.claude/skills` 僅 4 個 personal skill（總 ~303 tokens）、無重複、無過時 plugin 版本、無自裝 subagent。唯一提示 `ui-ux-pro-max` description 807 字元（~207 tok），但那是刻意塞關鍵字以利自動觸發，**不動**。`test-driven-development` / `verification-before-completion` 被標近 3 月未明確呼叫（weak signal，仍會自動觸發），留著無害。此工具對「裝多 plugin/skill 堆積」的環境才有價值，對本機基本無事可做。內建 skill（code-review/deep-research 等）不在其稽核範圍。
 
 **第十輪：文案產生器強化（2026-05-29）— 擷取外部文案器優點**
 
