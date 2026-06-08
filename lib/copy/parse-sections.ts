@@ -9,13 +9,15 @@ export interface CopySection {
 /**
  * 將 LLM 輸出依「【區塊名】」分段。
  * - 不符合區塊格式（沒有任何【...】）→ 回傳 []
- * - 一個區塊後緊接內容（可多行）直到下一個「【...】」或文字結尾
+ * - 同時支援兩種格式（模型短區塊常用前者、長區塊常用後者）：
+ *     「【區塊名】內容」    ← 標頭與內容同一行（如 RSA 的 15 組短標題）
+ *     「【區塊名】\n內容…」  ← 標頭獨佔一行，內容換到下一行（可多行，如 Primary Text）
  */
 export function parseSections(text: string): CopySection[] {
   if (!text) return []
 
-  // 比對行首的【XXX】（容許前後空白）
-  const headerRe = /^\s*【([^】\n]+)】\s*$/gm
+  // 行首的【XXX】，後面可選地「同一行」接內容（group 2）
+  const headerRe = /^[ \t]*【([^】\n]+)】[ \t]*(.*)$/gm
   const matches = Array.from(text.matchAll(headerRe))
   if (matches.length === 0) return []
 
@@ -23,9 +25,11 @@ export function parseSections(text: string): CopySection[] {
   for (let i = 0; i < matches.length; i++) {
     const m = matches[i]
     const title = m[1].trim()
-    const start = (m.index ?? 0) + m[0].length
-    const end = i + 1 < matches.length ? (matches[i + 1].index ?? text.length) : text.length
-    const content = text.slice(start, end).trim()
+    const inline = (m[2] ?? '').trim()                       // 同一行的內容
+    const lineEnd = (m.index ?? 0) + m[0].length             // 此標頭行結尾
+    const nextStart = i + 1 < matches.length ? (matches[i + 1].index ?? text.length) : text.length
+    const rest = text.slice(lineEnd, nextStart).trim()       // 後續換行的內容
+    const content = [inline, rest].filter(Boolean).join('\n').trim()
     if (title) sections.push({ title, content })
   }
   return sections
