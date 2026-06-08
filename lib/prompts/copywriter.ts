@@ -367,13 +367,20 @@ export function buildCopyBrief(req: GenerateCopyRequest): string {
     parts.push(`主關鍵字（廣告必用、SEO 需自然嵌入）：${req.keywords.trim()}`)
   }
   if (req.ctaType) {
-    const CTA_MAP: Record<typeof req.ctaType & string, string> = {
-      ecommerce: '電商導向 — 【CTA】從這些選一個：立即購買 / 立即選購 / 加入購物車 / 下單預訂 / 立即下單',
-      call:      '來電導向 — 【CTA】從這些選一個：撥打洽詢 / 立即來電 / 預約專人服務 / 電話諮詢',
-      visit:     '來店導向 — 【CTA】從這些選一個：來店體驗 / 立即前往門市 / 預約參觀 / 預約看房',
-      info:      '其他 — 【CTA】從這些選一個：了解更多 / 索取資訊 / 領取優惠 / 查看詳情',
+    const CTA_MAP: Record<typeof req.ctaType & string, { dir: string; words: string }> = {
+      ecommerce: { dir: '導向「線上購買」（官網 / 商城下單）', words: '立即購買 / 立即選購 / 加入購物車 / 下單預訂 / 手刀下單' },
+      call:      { dir: '導向「電話洽詢 / 預約」（不要只導官網購買）', words: '撥打洽詢 / 立即來電 / 預約專人服務 / 電話諮詢' },
+      visit:     { dir: '導向「實體門市 / 來店體驗」（⚠️ 不要導向官網下單，主打到店）', words: '來店體驗 / 立即前往門市 / 到最近的門市選購 / 預約到店參觀' },
+      info:      { dir: '導向「了解更多 / 索取資訊」', words: '了解更多 / 索取資訊 / 領取優惠 / 查看詳情' },
     }
-    parts.push(`CTA 類型偏好（廣告類請嚴守此類型用字）：${CTA_MAP[req.ctaType]}`)
+    const m = CTA_MAP[req.ctaType]
+    if (req.purpose === 'ad') {
+      parts.push(`CTA 類型偏好（廣告類請嚴守）：${m.dir}；【CTA】從這些選一個並輪替使用：${m.words}`)
+    } else {
+      parts.push(
+        `行動呼籲（CTA）方向：本篇結尾的行動呼籲必須${m.dir}；用字自然融入結尾、可輪替參考：${m.words}。⚠️ 不要寫出與此方向不符的通路（例如選「來店」就不要叫人去官網下單）。`,
+      )
+    }
   }
   if (req.additionalNotes?.trim()) {
     parts.push(`額外指示（最高優先，務必遵守）：${req.additionalNotes.trim()}`)

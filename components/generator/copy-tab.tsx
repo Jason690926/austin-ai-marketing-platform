@@ -87,7 +87,9 @@ export function CopyTab() {
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
 
   const showKeywords = KEYWORDS_PURPOSES.has(purpose)
-  const showCtaType = purpose === 'ad'  // 目前僅 Meta 廣告用
+  // CTA 導向(電商/來電/來店/其他):廣告 + 社群貼文 + 官網商品都適用
+  const showCtaType =
+    purpose === 'ad' || purpose === 'fb_post' || purpose === 'post' || purpose === 'web_product'
   const showAudience = AUDIENCE_PURPOSES.has(purpose)
 
   // 智能排序：依當月 (1-12) 把當月/下月檔期排前面
@@ -295,12 +297,12 @@ export function CopyTab() {
         </div>
       )}
 
-      {/* CTA type (only for Meta 廣告) */}
+      {/* CTA type (廣告 + 社群貼文 + 官網商品) */}
       {showCtaType && (
         <div>
           <Label className="text-sm font-medium mb-2 block">
-            CTA 類型
-            <span className="font-normal text-muted-foreground ml-1">(影響行動呼籲按鈕用字)</span>
+            CTA 導向
+            <span className="font-normal text-muted-foreground ml-1">(行動呼籲要把人導去哪：線上購買 / 來電 / 來店 / 了解更多)</span>
           </Label>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {CTA_TYPES.map(c => (
