@@ -136,6 +136,11 @@ npx tsc --noEmit     # 型別檢查（每次改完跑）
 
 commit 拆兩個：`db3d18c`（社群貼文體驗強化）、`834c1a4`（CTA 導向開放）。改動檔案：`lib/prompts/copywriter.ts`、`components/generator/copy-tab.tsx`。
 
+續修（同日，社群貼文持續優化）：
+7. **「不做 CTA」純內容選項**：`CtaType` 加 `'none'`；CTA 導向 UI 在 FB/IG 貼文多一張「不做 CTA」卡（廣告/官網商品不給，含切換時 reset 守衛）；`buildCopyBrief` 選 none 時禁止任何銷售/轉換呼籲、改走品牌經營/情感共鳴，**但仍保留一個互動觸發點**（不做 CTA ≠ 不做互動）。
+8. **emoji 位置自然化**：原 emoji 規則 + 排版示意範例都把 emoji 放行末 → 模型學成「清一色貼行末」。改規則為「位置要變化（句首/句中/句末/單獨成行）、不要每個都貼行末」，並把 FB/IG 兩個排版示意範例重寫成 emoji 散落各處（根因：範例怎麼示範模型就怎麼學）。
+改動檔案：`types/index.ts`、`components/generator/copy-tab.tsx`、`lib/prompts/copywriter.ts`。
+
 **第十一輪：模型升級 + 文案變化機制（2026-06-08）**
 
 查證 2026-06 各 AI 線最新版本後執行兩項優化：
