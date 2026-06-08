@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useMemo } from 'react'
+import { useState, useRef, useMemo, useEffect } from 'react'
 import { parseSections, isStructuredPurpose } from '@/lib/copy/parse-sections'
 import {
   CAMPAIGNS,
@@ -23,6 +23,10 @@ const CTA_TYPES: { value: CtaType; label: string; hint: string }[] = [
   { value: 'visit',     label: '來店', hint: '來店體驗 / 前往門市' },
   { value: 'info',      label: '其他', hint: '了解更多 / 索取資訊' },
 ]
+// 純內容貼文用：不放銷售 CTA（仍保留互動鉤子）。僅 FB/IG 貼文提供。
+const CTA_NONE: { value: CtaType; label: string; hint: string } = {
+  value: 'none', label: '不做 CTA', hint: '純內容 · 不推銷（保留互動）',
+}
 
 // A — 行銷大師語氣 persona
 const TONE_STYLES: { value: ToneStyle; label: string; hint: string }[] = [
@@ -90,6 +94,13 @@ export function CopyTab() {
   // CTA 導向(電商/來電/來店/其他):廣告 + 社群貼文 + 官網商品都適用
   const showCtaType =
     purpose === 'ad' || purpose === 'fb_post' || purpose === 'post' || purpose === 'web_product'
+  // 「不做 CTA」只給 FB/IG 純內容貼文(廣告/官網商品一定要 CTA)
+  const allowNoCta = purpose === 'fb_post' || purpose === 'post'
+  const ctaOptions = allowNoCta ? [...CTA_TYPES, CTA_NONE] : CTA_TYPES
+  // 從社群切到廣告/官網商品時,把殘留的 'none' 還原成預設,避免送出非法值
+  useEffect(() => {
+    if (!allowNoCta && ctaType === 'none') setCtaType('ecommerce')
+  }, [allowNoCta, ctaType])
   const showAudience = AUDIENCE_PURPOSES.has(purpose)
 
   // 智能排序：依當月 (1-12) 把當月/下月檔期排前面
@@ -305,7 +316,7 @@ export function CopyTab() {
             <span className="font-normal text-muted-foreground ml-1">(行動呼籲要把人導去哪：線上購買 / 來電 / 來店 / 了解更多)</span>
           </Label>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {CTA_TYPES.map(c => (
+            {ctaOptions.map(c => (
               <button
                 key={c.value}
                 type="button"

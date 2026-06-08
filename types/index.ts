@@ -114,7 +114,7 @@ export interface GenerateImageRequest {
   additionalNotes?: string
 }
 
-export type CtaType = 'ecommerce' | 'call' | 'visit' | 'info'
+export type CtaType = 'ecommerce' | 'call' | 'visit' | 'info' | 'none'
 
 // 行銷大師語氣 persona（A）— brand_default = 不覆寫,沿用品牌既有語氣
 export type ToneStyle =
