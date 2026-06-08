@@ -36,6 +36,12 @@ export async function POST(request: Request) {
     const model = getGeminiClient().getGenerativeModel({
       model: COPY_MODEL,
       systemInstruction: buildCopywriterSystemPrompt(body.store),
+      // 變化機制(二):拉高取樣隨機性,搭配 buildCopyBrief 注入的隨機創意方向,
+      // 讓每次產出在用字與結構上都更發散,降低雷同。1.2 兼顧多樣性與中文通順度。
+      generationConfig: {
+        temperature: 1.2,
+        topP: 0.97,
+      },
     })
 
     const parts: any[] = [{ text: buildCopyBrief(body) }]

@@ -1,10 +1,12 @@
-// Gemini 2.5 Flash Image (Nano Banana) — REST API client
+// Gemini 3.1 Flash Image (Nano Banana 2) — REST API client
 // 用 raw fetch 而非 SDK,因為 @google/generative-ai v0.24.1 不支援圖片生成,
 // 而升級到 @google/genai 會牽動現有文案路徑。獨立檔案隔離,日後好替換。
 
 import type { AspectRatio } from '@/types'
 
-export const IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image'
+// 預設 Nano Banana 2(2026-02 GA):中文字渲染、指令遵循大幅優於舊版 2.5 Flash Image。
+// 可用 GEMINI_IMAGE_MODEL 覆寫(降回 gemini-2.5-flash-image 省成本,或升 gemini-3-pro-image-preview 求最高品質)。
+export const IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image-preview'
 
 const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models'
 

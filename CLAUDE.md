@@ -88,7 +88,7 @@ npx tsc --noEmit     # 型別檢查（每次改完跑）
   - 自動寫入素材庫；商品圖優先存 `assets.reference_image_url`
   - 結果區每張有「下載」鈕（fetch as blob 繞跨網域）+「素材庫」連結
   - **重試機制**：Gemini 偶發 `MALFORMED_FUNCTION_CALL` / `OTHER` finishReason → 最多重試 3 次（指數退避 500ms→2000ms）
-  - **預設模型** `gemini-2.5-flash-image`（standard 級中文字渲染弱），建議 `.env.local` 加 `GEMINI_IMAGE_MODEL=gemini-3.1-flash-image-preview`（4K、advanced 級、$0.045/張）
+  - **預設模型** `gemini-3.1-flash-image-preview`（Nano Banana 2，2026-02 GA，中文字渲染佳；2026-06-08 從 2.5 Flash Image 升上來）。可用 `GEMINI_IMAGE_MODEL` 覆寫：省成本降回 `gemini-2.5-flash-image`，求最高品質升 `gemini-3-pro-image-preview`
 - 文案產生器 UI：
   - 用途卡片分群（社群 / 廣告 / 官網·SEO）
   - **行銷檔期 chip**（年度 27 個檔期，依當月智能排序，分節日/百貨/季節 3 色）+ **自訂檔期描述欄位**（與 chip 並存）
@@ -112,7 +112,7 @@ npx tsc --noEmit     # 型別檢查（每次改完跑）
 
 ### 已知問題（下一步要處理）
 
-- **中文字渲染品質**：`gemini-2.5-flash-image` (standard 級) 中文字常錯字 / 變形，6 字內較穩、超過 12 字就崩。建議升 `gemini-3.1-flash-image-preview`（advanced 級，付費 $0.045/張）。終極解法可能要走「AI 留位 + 後端字體渲染器疊字」混合方案。
+- **中文字渲染品質**：~~`gemini-2.5-flash-image` (standard 級) 中文字常錯字 / 變形~~ → **2026-06-08 已預設升 Nano Banana 2 (`gemini-3.1-flash-image-preview`)**，中文字渲染大幅改善。若長字串仍偶有瑕疵，終極解法可走「AI 留位 + 後端字體渲染器疊字」混合方案，或升 `gemini-3-pro-image-preview`。
 - **Lifestyle 圖偶爾仍 stock photo 感**：已 prompt 強化（HUMAN_DIRECTION + 6 個 brand-specific editorial archetypes，明列「不對鏡頭笑」「individual characterful faces」），但 model 限制下偶爾仍出現「亞洲新婚夫妻」trope。若仍不夠 editorial，下一步要嘛升 3 Pro，要嘛在 archetype 加更具體 model casting 描述。
 
 ### 已修問題
@@ -120,6 +120,12 @@ npx tsc --noEmit     # 型別檢查（每次改完跑）
 1. **參考圖文案品質差**（2026-05-22 修）：上傳聯名角色圖（如 SNOOPY）時，文案只講品牌、忽略圖中主角。修法：`copywriter.ts` 系統 prompt 新增「參考圖片判讀規則」段（辨識主角→寫成文案主軸→氛圍只當輔助→不杜撰）；`route.ts` 參考圖指令從單行「參考氛圍/光線/色調」改為 5 點強指令；`copy-tab.tsx` 上傳欄說明同步更新。
 
 ### 改動歷程（2026-05-20 ~ 06-08）
+
+**第十一輪：模型升級 + 文案變化機制（2026-06-08）**
+
+查證 2026-06 各 AI 線最新版本後執行兩項優化：
+1. **產圖升 Nano Banana 2**：`lib/gemini/image.ts` 預設 `gemini-2.5-flash-image` → `gemini-3.1-flash-image-preview`（2026-02 GA，中文字渲染大幅改善，直接解掉「已知問題」第一條）。仍可用 `GEMINI_IMAGE_MODEL` 覆寫降級/升 Pro。同步更新 `.env.local.example`、`image-tab.tsx` 說明、CLAUDE.md。
+2. **文案變化機制（解雷同，留在 2.5 Flash）**：雷同主因是「相同輸入→模型走同一條安全路徑」，光調 temperature 只變用字不變套路。兩段式解法：(a) `copywriter.ts` 新增 `pickVariationDirective()` — 每次產出隨機抽 1 個切入角度（10 選 1：痛點/場景/反差/感官/提問/故事/數據/直球/借勢/私語）+ 2 條開場禁令（5 池輪替），注入 `buildCopyBrief`；對結構化用途只影響鉤子/用字、不破壞【區塊】格式。(b) `route.ts` 加 `generationConfig` temperature 1.2 / topP 0.97 拉高發散度。文案模型維持 2.5 Flash，待驗證雷同改善後再評估是否升 3 Flash。`npx tsc --noEmit` 通過。
 
 **環境稽核：skill-cleaner 體檢（2026-06-08）— 非程式改動**
 

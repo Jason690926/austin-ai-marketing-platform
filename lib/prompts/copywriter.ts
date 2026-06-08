@@ -217,6 +217,48 @@ const AUDIENCE_STRATEGY_GUIDE: Record<NonNullable<GenerateCopyRequest['audienceS
     '受眾策略：主顧再行銷（Remarketing）。假設讀者已認識或買過本品牌，用「老朋友敘舊」的熟悉口吻。主打好感回饋、會員 / 熟客專屬感、破除回購猶豫（臨門一腳的優惠 / 保證 / 新品理由）。語氣聚焦「好久不見，這次有更好的」，CTA 偏回購 / 領專屬優惠 / 補貨。',
 }
 
+// 文案變化機制 — 雷同主因是「相同輸入→模型走同一條安全路徑」,光調 temperature 只變用字、
+// 不變結構套路。解法:每次產出隨機抽一組「切入角度 + 開場禁令」注入,強迫模型換路走。
+// 對結構化用途(廣告/SEO),此指令只影響鉤子/用字/鋪陳順序,不改變【區塊】格式。
+const CREATIVE_ANGLES = [
+  '痛點切入：先戳中目標族群最有感的睡眠 / 生活困擾,再帶出解方。',
+  '場景畫面：用一個具體的時間 + 空間 + 動作畫面開場,讓人「看見」情境。',
+  '反差對比：用「以前 vs 現在」「想像 vs 真實」的落差製造張力。',
+  '感官描寫：從觸感 / 溫度 / 體感 / 視覺等身體感受切入,營造沉浸感。',
+  '提問互動：用一個讓讀者忍不住在心裡回答的問題開場。',
+  '微型故事：用一段人物的一天 / 一個生活片刻 / 一句對話帶出主題。',
+  '數據事實：用一個具體可信的事實 / 比例 / 規格 / 通路數字建立說服力(嚴禁杜撰)。',
+  '直球利益：開門見山把最大好處放第一句,後面再補理由。',
+  '時間借勢：扣住當下檔期 / 節氣 / 一天中的時段,製造此刻相關性。',
+  '私語口吻：像傳訊息給一位老朋友,第二人稱、親密、不像廣告。',
+]
+
+const OPENING_BANS = [
+  '你是否也曾… / 在這個…的時代 / 每個人都… 這類萬用空話開場',
+  '以品牌名或商品名當第一個詞開場',
+  '想要好睡眠嗎？ 這類誰都能用的通用問句',
+  '擁有…,從此… 的罐頭句式',
+  '驚！ / 你絕對想不到 / 這款神器 這類農場標題腔',
+]
+
+// 用 index 偏移做輕量洗牌,挑 2 條禁令(每次不同,避免老是禁同幾條)。
+function pickN<T>(pool: T[], n: number): T[] {
+  const start = Math.floor(Math.random() * pool.length)
+  return Array.from({ length: Math.min(n, pool.length) }, (_, i) => pool[(start + i) % pool.length])
+}
+
+// 匯出供測試 / route 使用;每次呼叫回傳不同組合。
+export function pickVariationDirective(): string {
+  const angle = CREATIVE_ANGLES[Math.floor(Math.random() * CREATIVE_ANGLES.length)]
+  const bans = pickN(OPENING_BANS, 2)
+  return [
+    '═══ 本次創意方向(每次不同,務必讓這篇與你過往產出明顯不同) ═══',
+    `- 本次主要切入角度：${angle}`,
+    `- 本次刻意避免的開場：${bans.join('；')}。`,
+    '- 在不違反上方所有硬規則與【區塊】格式的前提下,主動變換句子長短、段落順序與鉤子手法,不要套用慣用模板。',
+  ].join('\n')
+}
+
 export function buildCopyBrief(req: GenerateCopyRequest): string {
   const parts: string[] = []
 
@@ -270,6 +312,7 @@ export function buildCopyBrief(req: GenerateCopyRequest): string {
     parts.push(`額外指示（最高優先，務必遵守）：${req.additionalNotes.trim()}`)
   }
 
+  parts.push(pickVariationDirective())
   parts.push('請依以上需求，直接輸出文案；廣告 / SEO 類請嚴格使用上方規定的【區塊】格式。')
   return parts.join('\n')
 }

@@ -536,7 +536,7 @@ export function ImageTab() {
           <div>
             <Label className="text-sm font-semibold block">廣告文字內容</Label>
             <p className="text-xs text-muted-foreground mt-1">
-              AI 會把以下文字直接渲染進圖。中文字渲染品質視模型而定（預設 2.5 Flash Image 為標準級；要更精緻可在 <code className="text-[10px]">.env.local</code> 設 <code className="text-[10px]">GEMINI_IMAGE_MODEL=gemini-3.1-flash-image-preview</code> 升級到進階級 / Nano Banana 2）
+              AI 會把以下文字直接渲染進圖。預設使用 Nano Banana 2（3.1 Flash Image），中文字渲染品質佳；若要省成本可在 <code className="text-[10px]">.env.local</code> 設 <code className="text-[10px]">GEMINI_IMAGE_MODEL=gemini-2.5-flash-image</code> 降回標準級，或設 <code className="text-[10px]">gemini-3-pro-image-preview</code> 升到最高品質。
             </p>
           </div>
 
