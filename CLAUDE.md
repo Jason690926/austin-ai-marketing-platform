@@ -68,7 +68,7 @@ npx tsc --noEmit     # 型別檢查（每次改完跑）
 - 專案擁有者是 Austin，使用者代為開發且**全權做主** — 不要提醒「與 Austin 確認」。
 - 不擅自 commit / push；使用者要求才做。
 
-## 目前狀態（2026-05-29）
+## 目前狀態（2026-06-09）
 
 已可運作：
 - 真實 Supabase 登入
@@ -76,13 +76,15 @@ npx tsc --noEmit     # 型別檢查（每次改完跑）
   - **行銷大師語氣 persona**（7 種：品牌預設 / 精簡 / 幽默 / Ogilvy / Wieden+Kennedy / BBDO / Gary Halbert，全用途通用）
   - **受眾策略**（找新客 PAS 痛點+建立信任 vs 主顧再行銷 老友敘舊+破除回購猶豫；轉換型用途顯示）
   - **廣告合規護欄**（醫療/療效宣稱禁令 + 合規替代詞庫，兩品牌恆開；防螨抗菌等只能陳述產品特性、不得延伸療效）
-  - **品牌名自然化**：正文是否點名品牌依描述自然決定、不硬塞（只給 SNOOPY 時不會生硬插 AUSTIN），品牌識別優先走 hashtag/署名
+  - **品牌名自然化 + 單一品牌一致性**：正文是否點名品牌依描述自然決定、不硬塞；house brand 一律寫「AUSTIN」或「奧斯汀」（**禁止 AUSTIN HOME**）；⚠️ 主打聯名角色（SNOOPY 等）時整篇只圍繞該角色、**AUSTIN/奧斯汀 100% 不出現**、絕不混搭（2026-06-09 使用者修正，鐵律寫進 `brand-knowledge.ts` + `copywriter.ts`）
+  - **結構化輸出（廣告/SEO 走 Gemini responseSchema）**：`ad`/`google_search_ad`/`pmax_ad`/`seo_article` 改用 responseSchema 強制 JSON、滿配由 `minItems/maxItems` 鎖死，再用受控 serializer 序列化回標準【區塊名】文字存 `copy_text`（零 DB 改動、下游全相容）；字數超限用 `clipStructured` 智慧截斷兜底（切句界、保證 ≤ 上限）。見 `lib/copy/structured-output.ts`
 - `/api/generate/image`：**Gemini 圖像產出 — 3 個 Level**：
   - **Level 1 底圖**：3 模式（場景模板 / 參考圖 / 自由描述），無文字、留白給後製
   - **Level 2 完整廣告**：使用者填 4 欄位（主標 / 副標 / 背書 / 賣點 ×3），AI 把文字燒進圖
   - **Level 3 AI 全權自主**：使用者只給商品 brief + catalog/lifestyle 變體數，AI 自己想場景、寫文案、設計版面；6 個 brand-specific lifestyle archetypes 自動輪替（寢飾走 Kinfolk / MUJI，床墊走 Wallpaper* / Mandarin Oriental）
   - **商品圖**（全 Level 適用）：上傳實際商品照→AI 保留商品原樣只重生背景
   - **參考圖**（reference 模式）：上傳場景參考；ref 比例 ≠ 輸出比例時後端用 sharp 量比例自動加 outpaint 指令
+  - **創意尺度**（第三條視覺軸，全 Level 適用，預設寫實融入）：`realistic` 寫實融入（接地陰影/不漂浮）/ `playful` 巧思點綴 / `surreal` 超現實大膽（戲劇角度+高彩度+劇場光）。與「場景模式（構圖來源）」「風格調性（光線氛圍）」垂直。`playful/surreal` 會主動鬆綁品牌美學的 muted/quiet 鉗制讓大膽真的大膽；文字尺度也綁在此軸（realistic 只用 user 字，bold 允許補非宣稱氛圍字，但**價格/數字/認證/背書/療效跨模式恆禁**）。見 `lib/prompts/scene-templates.ts` `CREATIVE_SCALE_DIRECTION`
   - **6 種預設尺寸 + 自訂像素**（256-4096 整數），所有輸出 sharp cover 裁到精確 pixel
   - 圖檔上 Supabase Storage `generated-images` bucket（用 user_id 分資料夾走 RLS）
   - 自動寫入素材庫；商品圖優先存 `assets.reference_image_url`
@@ -106,7 +108,7 @@ npx tsc --noEmit     # 型別檢查（每次改完跑）
   - 單一 Page 階段：Page 憑證由 `.env.local` 提供;已實測發文成功（測試粉專 AZING HOME）
   - ⚠️ 2026-05-22 開發者帳號一度被 Meta 風控凍結（連帶 token 失效、貼文隱形），解封後全部恢復;詳見記憶 `project_meta_account_flag_incident`
 
-待辦：#4 FB Pages 管理（多經銷商 token DB 表）、#5 排程 UI。
+待辦：#4 FB Pages 管理（多經銷商 token DB 表）、#5 排程 UI。（**D Structured JSON Output 已於 2026-06-09 完成**，見第十三輪。）
 
 #2 AI 產圖 Level 1-3 全套：2026-05-26 完成（單日從 0 → Level 1/2/3 全到位 + 商品圖 + 自訂像素 + 下載 + 品牌專屬美學）。模型用 Gemini 2.5 Flash Image (Nano Banana)，非規格原訂的 Imagen — Imagen 4 沒免費層且純 T2I 無法吃參考圖。
 
@@ -114,14 +116,45 @@ npx tsc --noEmit     # 型別檢查（每次改完跑）
 
 - **中文字渲染品質**：~~`gemini-2.5-flash-image` (standard 級) 中文字常錯字 / 變形~~ → **2026-06-08 已預設升 Nano Banana 2 (`gemini-3.1-flash-image-preview`)**，中文字渲染大幅改善。若長字串仍偶有瑕疵，終極解法可走「AI 留位 + 後端字體渲染器疊字」混合方案，或升 `gemini-3-pro-image-preview`。
 - **Lifestyle 圖偶爾仍 stock photo 感**：已 prompt 強化（HUMAN_DIRECTION + 6 個 brand-specific editorial archetypes，明列「不對鏡頭笑」「individual characterful faces」），但 model 限制下偶爾仍出現「亞洲新婚夫妻」trope。若仍不夠 editorial，下一步要嘛升 3 Pro，要嘛在 archetype 加更具體 model casting 描述。
+- **創意尺度三段差異的結構性天花板**：第十四輪已把 prompt 改成具體變數 + 大膽模式鬆綁品牌鉗制，三段拉得開。但當「商品圖（尤其整房情境照）+ 場景描述 + 燒進去的文字」三者全被使用者鎖死時，三段能差的只剩相機/光線/彩度/staging。要差異更大需用「乾淨商品照」或讓場景留白給 AI。屬使用方式而非 bug，已記入 `docs/圖片產生器使用指南.md`。
 
 ### 已修問題
 
 1. **參考圖文案品質差**（2026-05-22 修）：上傳聯名角色圖（如 SNOOPY）時，文案只講品牌、忽略圖中主角。修法：`copywriter.ts` 系統 prompt 新增「參考圖片判讀規則」段（辨識主角→寫成文案主軸→氛圍只當輔助→不杜撰）；`route.ts` 參考圖指令從單行「參考氛圍/光線/色調」改為 5 點強指令；`copy-tab.tsx` 上傳欄說明同步更新。
 
-2. **RSA 結果不分卡**（2026-06-08 修，commit `7229168`）：Google 搜尋廣告（RSA）產出後不像 PMax 能逐區塊單獨複製，整篇變一塊純文字。根因：RSA 短區塊（15 標題等）模型常輸出「`【Headline 1】內容`」**同一行**，而 `parse-sections.ts` 舊正規表達式 `/^\s*【…】\s*$/gm` 要求標頭**獨佔一行** → 解析回 `[]` → `useStructured` 為 false → 退化成單一文字塊。修法：regex 改 `/^[ \t]*【([^】\n]+)】[ \t]*(.*)$/gm`，標頭後可選地接同行內容（group 2），content = 同行內容 + 後續換行內容。向下相容，已驗證 RSA 同行 / PMax 換行 / Ad 多行 Primary Text（含段落空行保留）三種格式皆正確。⚠️ 此 bug 正凸顯 parseSections 的脆弱性，待辦 **D（Structured JSON Output / responseSchema）** 可根治這類解析問題。
+2. **RSA 結果不分卡**（2026-06-08 修，commit `7229168`）：Google 搜尋廣告（RSA）產出後不像 PMax 能逐區塊單獨複製，整篇變一塊純文字。根因：RSA 短區塊（15 標題等）模型常輸出「`【Headline 1】內容`」**同一行**，而 `parse-sections.ts` 舊正規表達式 `/^\s*【…】\s*$/gm` 要求標頭**獨佔一行** → 解析回 `[]` → `useStructured` 為 false → 退化成單一文字塊。修法：regex 改 `/^[ \t]*【([^】\n]+)】[ \t]*(.*)$/gm`，標頭後可選地接同行內容（group 2），content = 同行內容 + 後續換行內容。向下相容，已驗證 RSA 同行 / PMax 換行 / Ad 多行 Primary Text（含段落空行保留）三種格式皆正確。⚠️ 此 bug 正凸顯 parseSections 的脆弱性 → **已由待辦 D（Structured JSON Output / responseSchema）根治**（2026-06-09，見第十三輪）：寫入端改由受控 serializer 產出標準格式，解析脆弱在物理上不再發生。
 
-### 改動歷程（2026-05-20 ~ 06-08）
+### 改動歷程（2026-05-20 ~ 06-09）
+
+**第十四輪：AI 產圖「創意尺度」第三視覺軸（2026-06-09）— 討論定案 + plan + TDD + 實測迭代**
+
+使用者實測 Level 2（SNOOPY 寢具 + 自由描述「足球場上」）產出「床漂浮在球場、無接地陰影、文字飄空中」的怪圖。經與使用者一輪產品討論釐清：問題不是「超現實」本身（超現實當創意成立），而是它是「意外的爛拼貼」非「故意的好超現實」；且系統無法從「足球場上」判斷使用者要寫實借勢還是大膽超現實 → 依專案判準（第十二輪「UI 只留給系統猜不到、選錯會錯的決策」）這是該給 UI 的決策。改動：
+
+1. **新增 `CreativeScale` 第三條視覺軸**（`types/index.ts`）：`realistic`/`playful`/`surreal`，與「場景模式（構圖來源）」「風格調性（光線氛圍）」垂直、橫跨 Level 1/2/3、每次產圖各選、預設 realistic。`image-tab.tsx` 加 chip 選擇器（**放在 `level!=='level3'` 隱藏區塊外**，所有 Level 都顯示）；`route.ts` 解析 + 傳穿；`scene-templates.ts` `buildPrompt`/`buildLevel3Prompt` 注入。
+2. **視覺手法 + 文字尺度綁同一軸**：realistic=接地寫實 + 只用 user 字;playful=寫實+一個巧思 + 允許非宣稱氛圍字;surreal=刻意超現實 + 允許非宣稱氛圍字。
+3. **🚫 文字紅線跨所有模式恆禁**（合規）：AI 不可自生 價格/數字/認證/背書/店家數/療效。`TEXT_FACT_REDLINE` + `buildTextLibertyRules`。
+4. **留白編排自動化**：Level 2 文字填太少 → 自動切極簡 editorial 版面（大留白、不捏字填版），所有模式都做。
+5. **實測迭代（關鍵）**：第一版三段產出「幾乎一樣」。根因三個壓制源：(a) 商品圖+場景+文字鎖死 90% 畫面;(b) 創意尺度指令是抽象品質詞、非具體可畫變數 → 模型收斂;(c) 品牌 `BRAND_AESTHETIC_ANCHORS` 的「muted/quiet/never-exuberant」每張全力注入、跟 surreal 互斥。修法（使用者選「允許突破」）：指令改成**具體變數**（相機角度/光線/彩度/尺度）;playful/surreal 主動鬆綁品牌鉗制 —— 換較輕的 `QUALITY_FAILSAFE_BOLD`、注入 `BOLD_SCALE_AESTHETIC_OVERRIDE`（明令 Disregard muted）、negative prompt 用 `LEVEL_2_NEGATIVE_PROMPT_BOLD`（拿掉 no over-saturation）;realistic 維持完整品牌鐵律。
+6. **TDD**：`scene-templates.test.ts`（43 個純層測試,重點鎖「文字紅線跨三模式恆禁」「大膽模式有鬆綁/寫實沒鬆綁」「具體變數」等不變式）。
+7. **附帶**：新增 `docs/圖片產生器使用指南.md`（操作者速查每欄位意思 + 三軸心智模型 + 快速決策表）。
+
+⚠️ 結構性天花板：商品圖（尤其整房情境照）+ 場景 + 燒字三者鎖死時,三段差異受限於相機/光線/彩度/staging;要更大差異需用乾淨商品照或讓場景留白。
+
+**第十三輪：待辦 D 結構化 JSON 輸出 + 字數智慧截斷 + 品牌規則修正（2026-06-09）— TDD + 實測迭代**
+
+完成待辦 **D（Structured JSON Output / responseSchema）**,並在實測中迭代出字數截斷與兩條品牌規則。全程走 plan → TDD（首次替專案引入 vitest）→ 實測。commit 拆兩個:`e163e42`（D 主體）、`a3eb5e0`（截斷 + 品牌）。
+
+1. **D 結構化輸出**:廣告/SEO 四用途（`ad`/`google_search_ad`/`pmax_ad`/`seo_article`）改用 Gemini `responseSchema` 強制回傳 JSON,滿配（RSA 15 標題、PMax 15 短標+5 長標+5 說明）由 schema 的 `minItems/maxItems` 鎖死,取代原本「prompt 哀求滿配 + regex 事後猜」。
+   - **核心架構決策:`copy_text` 仍是唯一真實來源、零 DB migration**。JSON 只是過程 → 我方用受控 serializer 序列化成標準格式的【區塊名】文字（標頭獨佔一行、區塊間空行）存 `copy_text`。下游全部不動照常運作（parseSections / sheets push 嚴格 regex / 素材庫 / 發布 / 內嵌編輯）。根治脆弱性的關鍵:寫入與讀取兩端都由我方掌握,RSA 那類「標頭與內容同行」的格式漂移在物理上不再發生。
+   - 已驗證 SDK `@google/generative-ai` v0.24.1 原生支援 `responseMimeType`+`responseSchema`,**不需升級**。`ArraySchema` 有 `minItems/maxItems`（可鎖滿配）;`StringSchema` 無 `maxLength`（字數限制只能走 description + 後驗證）。
+   - 新檔 `lib/copy/structured-output.ts`:`STRUCTURED_SCHEMAS` + `serializeSections` + `validateQuota`。`route.ts` 結構化用途分流（加 responseSchema → `JSON.parse` 包 try/catch 防禦退回 → 序列化）。`copywriter.ts` `buildCopyBrief` 結構化用途附 JSON 輸出說明。
+2. **字數遵從 + 智慧截斷**:實測發現 Gemini 對「中文字數上限」天生當軟目標,RSA 說明常 49–53 字（上限 45）。兩段式處理:(a) schema 欄位 description + PURPOSE_GUIDE 強化「嚴格上限/逐字自檢/寧短勿長」措辭（只把 4 條全超降到 1–2 條輕微超）;(b) route 端序列化前用 `clipStructured` 智慧截斷兜底 —— 切在上限內最後一個標點,**連接性標點（逗號/頓號）結尾去尾收乾淨、句末標點（。！？）保留**,標點太早則硬切到上限。`validateQuota` 仍跑在模型原始輸出上以 log 診斷 overshoot。
+3. **品牌規則修正（使用者實測指正）**:
+   - **AUSTIN HOME 全面改 AUSTIN / 奧斯汀**:house brand 一律寫「AUSTIN」（全大寫）或中文「奧斯汀」,**禁止「AUSTIN HOME」**。改 `brand-knowledge.ts`、`copywriter.ts`（BRAND_NAME / 大小寫鐵律 / 廣告 Description 禁開頭清單 / 品牌名時機段）、`scene-templates.ts`（圖片品牌字樣）。
+   - **單一品牌一致性鐵律**:一篇文案只能有一個品牌識別,主打聯名角色（SNOOPY/PEANUTS/Classic Teddy/AZING/Austin LONDON）時整篇（正文+標題+Description+hashtag+署名）**只圍繞該角色,AUSTIN/奧斯汀 100% 不可出現,絕不混搭**。寫進 `brand-knowledge.ts` + `copywriter.ts`「品牌名稱出現時機 + 單一品牌一致性」段,含正反例。已實測驗證:SNOOPY 主題 RSA 零 AUSTIN 混搭。
+4. **首次引入 vitest**:`package.json` 加 `test`/`test:watch`、`vitest.config.ts`（node env、`@` alias 對齊 tsconfig）。純解析/序列化層 **28 個測試**（含鎖死 RSA 修復的 parse-sections 回歸 + serialize round-trip + clip 截斷 + validateQuota）。LLM/UI/DB 層仍走 `tsc --noEmit` + dev server 手測。判準:TDD 只對純函式層有意義,LLM 呼叫非確定性不單元測試。
+
+⚠️ 殘留:字數限制無法在 schema 硬鎖（StringSchema 無 maxLength）,靠 description + clip 兜底已可保證不超字;Gemini 偶爾仍少填陣列（minItems best-effort）→ validateQuota 警告非致命。
 
 **第十二輪：社群貼文體驗強化 + CTA 導向開放（2026-06-08）— 實測迭代驅動**
 
