@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getGeminiClient, COPY_MODEL } from '@/lib/gemini/client'
 import { buildCopywriterSystemPrompt, buildCopyBrief } from '@/lib/prompts/copywriter'
+import { isStructuredPurpose } from '@/lib/copy/parse-sections'
+import { STRUCTURED_SCHEMAS, serializeSections, validateQuota, type StructuredPurpose } from '@/lib/copy/structured-output'
 import type { GenerateCopyRequest, AssetStore, AssetPurpose } from '@/types'
 
 const STORES: AssetStore[] = ['mattress', 'bedding']
@@ -31,6 +33,10 @@ export async function POST(request: Request) {
   }
 
   // 3. Generate copy with Gemini 2.5 Flash
+  // 待辦 D:廣告/SEO 類用途改走 responseSchema 強制結構化 JSON(滿配由 schema 的
+  // minItems/maxItems 保證),拿到 JSON 後序列化成標準格式的【區塊名】文字再存。
+  // temperature 仍維持 1.2 — schema 只約束結構、不殺用字發散。
+  const structured = isStructuredPurpose(body.purpose)
   let copyText: string
   try {
     const model = getGeminiClient().getGenerativeModel({
@@ -41,6 +47,12 @@ export async function POST(request: Request) {
       generationConfig: {
         temperature: 1.2,
         topP: 0.97,
+        ...(structured
+          ? {
+              responseMimeType: 'application/json',
+              responseSchema: STRUCTURED_SCHEMAS[body.purpose as StructuredPurpose],
+            }
+          : {}),
       },
     })
 
@@ -66,9 +78,28 @@ export async function POST(request: Request) {
     }
 
     const result = await model.generateContent(parts)
-    copyText = result.response.text().trim()
-    if (!copyText) {
+    const raw = result.response.text().trim()
+    if (!raw) {
       return NextResponse.json({ error: 'Gemini 未產生內容，請重試' }, { status: 502 })
+    }
+
+    if (structured) {
+      // responseSchema 下回傳的是 JSON;解析 → 後驗證(只 log 警告) → 序列化成標準【區塊名】文字。
+      // JSON.parse 失敗時防禦性退回原始文字,不讓整條請求掛掉。
+      try {
+        const data = JSON.parse(raw)
+        const purpose = body.purpose as StructuredPurpose
+        const warnings = validateQuota(purpose, data)
+        if (warnings.length > 0) {
+          console.warn(`[generate/copy] ${purpose} 滿配/字數警告:`, warnings)
+        }
+        copyText = serializeSections(purpose, data)
+      } catch (parseErr) {
+        console.warn('[generate/copy] 結構化 JSON 解析失敗,退回原始文字:', parseErr)
+        copyText = raw
+      }
+    } else {
+      copyText = raw
     }
   } catch (e: any) {
     return NextResponse.json(

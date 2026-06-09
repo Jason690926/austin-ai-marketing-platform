@@ -2,6 +2,7 @@ import type { AssetStore, AssetPurpose, GenerateCopyRequest } from '@/types'
 import { getBrandKnowledge } from './brand-knowledge'
 import { getSceneById } from './scene-templates'
 import { getCampaignById, categoryLabel } from '@/lib/copy/campaigns'
+import { isStructuredPurpose } from '@/lib/copy/parse-sections'
 
 const BRAND_NAME: Record<AssetStore, string> = {
   mattress: 'Sleeptrain 美國席樂頓名床',
@@ -395,6 +396,15 @@ export function buildCopyBrief(req: GenerateCopyRequest): string {
   }
 
   parts.push(pickVariationDirective())
-  parts.push('請依以上需求，直接輸出文案；廣告 / SEO 類請嚴格使用上方規定的【區塊】格式。')
+
+  // 結構化用途(ad / RSA / PMax / SEO)走 responseSchema 以 JSON 結構輸出,
+  // 提醒模型把文案填進對應欄位、欄位值內不要再加【】標頭(避免標頭被當成內容字串)。
+  if (isStructuredPurpose(req.purpose)) {
+    parts.push(
+      '⚠️ 本次以 JSON 結構化格式輸出:請把文案內容填進 schema 規定的各欄位,欄位「值」內請勿再加【】區塊標頭或欄位名稱;陣列欄位請務必填滿規定組數。',
+    )
+  } else {
+    parts.push('請依以上需求，直接輸出文案。')
+  }
   return parts.join('\n')
 }
