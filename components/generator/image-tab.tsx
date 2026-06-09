@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
 import { PenLine, Plus, X, Upload, ImageIcon, AlertCircle, Loader2, Download, Ruler } from 'lucide-react'
-import type { Asset, AssetStore, SizePreset, StylePreset } from '@/types'
+import type { Asset, AssetStore, SizePreset, StylePreset, CreativeScale } from '@/types'
 
 type Level = 'level1' | 'level2' | 'level3'
 type Mode  = 'scene' | 'reference' | 'freeform'
@@ -43,6 +43,13 @@ const STYLES: { value: StyleValue; label: string; dashed?: boolean }[] = [
   { value: 'custom',         label: '自由描述', dashed: true },
 ]
 
+// 創意尺度 — 第三條視覺軸,橫跨所有 Level。預設「寫實融入」(最安全、與現狀視覺最接近)。
+const CREATIVE_SCALES: { value: CreativeScale; label: string; desc: string }[] = [
+  { value: 'realistic', label: '寫實融入', desc: '自然融入場景、真實接地' },
+  { value: 'playful',   label: '巧思點綴', desc: '寫實為主、加一個設計巧思' },
+  { value: 'surreal',   label: '超現實大膽', desc: '刻意的超現實視覺 KV' },
+]
+
 const SIZES: { value: SizePreset; label: string; sub: string; orient: 'square' | 'portrait' | 'landscape' }[] = [
   { value: '1080x1080', label: '正方形',  sub: '1:1 · IG 貼文',       orient: 'square'    },
   { value: '1080x1350', label: '直式',    sub: '4:5 · IG 直式',       orient: 'portrait'  },
@@ -67,6 +74,7 @@ export function ImageTab() {
   const [freeformDesc,setFreeformDesc]= useState('')
   const [style,       setStyle]       = useState<StyleValue>('auto')
   const [styleDesc,   setStyleDesc]   = useState('')
+  const [creativeScale, setCreativeScale] = useState<CreativeScale>('realistic')
   const [sizes,       setSizes]       = useState<SizePreset[]>(['1080x1080'])
 
   // 自訂尺寸(像素)
@@ -249,6 +257,7 @@ export function ImageTab() {
       form.append('freeformDesc', freeformDesc)
       form.append('stylePreset', style)
       form.append('styleDesc', styleDesc)
+      form.append('creativeScale', creativeScale)
       form.append('sizes', JSON.stringify(sizes))
       if (customValid && customParsed) {
         form.append('customSize', JSON.stringify({ width: customParsed.w, height: customParsed.h }))
@@ -602,6 +611,32 @@ export function ImageTab() {
       )}
       </>
       )}
+
+      {/* 創意尺度 — 第三條視覺軸,橫跨所有 Level(故放在 level!=='level3' 區塊外) */}
+      <div className="space-y-2">
+        <Label className="text-sm font-medium block">創意尺度</Label>
+        <div className="flex flex-wrap gap-2">
+          {CREATIVE_SCALES.map(cs => {
+            const active = creativeScale === cs.value
+            return (
+              <button
+                key={cs.value}
+                type="button"
+                onClick={() => setCreativeScale(cs.value)}
+                title={cs.desc}
+                className={`flex flex-col items-start px-3 py-2 rounded-md text-sm border transition-colors ${
+                  active
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'border-border text-muted-foreground hover:border-foreground hover:text-foreground'
+                }`}
+              >
+                <span className="font-medium">{cs.label}</span>
+                <span className="text-xs opacity-70">{cs.desc}</span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
 
       {/* Size multi-select */}
       <div>

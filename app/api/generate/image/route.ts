@@ -14,6 +14,7 @@ import type {
   Asset,
   AspectRatio,
   AssetStore,
+  CreativeScale,
   InputMode,
   SizePreset,
   StylePreset,
@@ -25,6 +26,7 @@ export const maxDuration = 60  // 多尺寸並行最久 60 秒
 const STORES: AssetStore[] = ['mattress', 'bedding']
 const MODES: InputMode[] = ['scene', 'reference', 'freeform']
 const STYLES: StylePreset[] = ['hotel_dark', 'cozy_warm', 'minimal_clean', 'outdoor_natural', 'auto']
+const CREATIVE_SCALES: CreativeScale[] = ['realistic', 'playful', 'surreal']
 const VALID_SIZES: SizePreset[] = ['1080x1080', '1080x1350', '1080x1920', '1200x675', '1200x628', '1920x800']
 
 // SizePreset → Gemini aspectRatio + 目標 pixel(會用 sharp 縮到精確尺寸)
@@ -100,6 +102,10 @@ export async function POST(request: Request) {
   const freeformDesc = String(form.get('freeformDesc') ?? '').trim()
   const stylePresetRaw = String(form.get('stylePreset') ?? 'auto')
   const styleDesc = String(form.get('styleDesc') ?? '').trim()
+  const creativeScaleRaw = String(form.get('creativeScale') ?? 'realistic')
+  const creativeScale: CreativeScale = (CREATIVE_SCALES as string[]).includes(creativeScaleRaw)
+    ? (creativeScaleRaw as CreativeScale)
+    : 'realistic'
   const referenceImageFile = form.get('referenceImage')
   const productImageFile = form.get('productImage')  // 商品圖(全模式適用,商品本身保留,只重生背景)
 
@@ -329,6 +335,7 @@ export async function POST(request: Request) {
             store,
             variation: target.variation,
             hasProductImage,
+            creativeScale,
           })
         : buildPrompt({
             mode: effectiveMode,
@@ -336,6 +343,7 @@ export async function POST(request: Request) {
             sceneTemplate,
             freeformDescription: effectiveFreeformDesc,
             stylePreset,
+            creativeScale,
             additionalNotes: additionalNotes || undefined,
             hasProductImage,
             hasReferenceImage,

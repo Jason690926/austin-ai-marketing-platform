@@ -94,6 +94,9 @@ export interface PublishPageResult {
 
 export type InputMode = 'scene' | 'reference' | 'freeform'
 export type StylePreset = 'hotel_dark' | 'cozy_warm' | 'minimal_clean' | 'outdoor_natural' | 'auto'
+// 創意尺度 — 第三條視覺軸(與 InputMode 構圖來源 / StylePreset 光線氛圍 垂直),橫跨 Level 1/2/3。
+// realistic=寫實融入(接地不漂浮) / playful=巧思點綴 / surreal=刻意的好超現實(光線統一、概念清楚)。
+export type CreativeScale = 'realistic' | 'playful' | 'surreal'
 export type SizePreset = '1080x1080' | '1080x1350' | '1080x1920' | '1200x675' | '1200x628' | '1920x800'
 
 export interface SceneTemplate {

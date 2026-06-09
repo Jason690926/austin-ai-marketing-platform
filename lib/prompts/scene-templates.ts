@@ -1,4 +1,4 @@
-import type { AssetStore, SceneTemplate, StylePreset } from '@/types'
+import type { AssetStore, SceneTemplate, StylePreset, CreativeScale } from '@/types'
 import { NEGATIVE_PROMPT } from './brand-knowledge'
 
 // 品牌專屬 aesthetic anchor — 解決「場景廉價」問題
@@ -16,12 +16,61 @@ const TYPOGRAPHY_DIRECTION = 'Typography direction (mandatory when text is rende
 
 const QUALITY_FAILSAFE = 'Quality failsafe — these patterns instantly destroy editorial quality and are forbidden: Canva or PowerPoint or Word template aesthetic; stock-photography happy-family or smiling-couple tropes; cheap clip-art, emoji, generic icons, sticker graphics; cluttered text layouts and templated advertising-poster feel; oversaturated colors, neon gradients, drop-shadow text effects; mass-market furniture (IKEA, Wayfair budget look); blown-out windows, phone-camera HDR, flat overhead lighting; generic model-home sterility or cluttered messiness; toothy fake smiles at camera; polyester loungewear, branded sleepwear, clothing with logos or character prints.'
 
-function buildAestheticDirection(store: AssetStore, includeHumans: boolean): string {
+// 創意尺度視覺指令 — 第三條軸。prose 段落(避免 ===/dash bullets 觸發 MALFORMED_FUNCTION_CALL)。
+// realistic 的 grounding 段直接對症「床漂浮在球場、無接地陰影」的拼貼 bug;
+// surreal 強調「刻意的好超現實」= 單一概念 + 光線統一,不是把產品貼到不相干背景。
+// 指令寫成「具體可畫的變數」(相機角度/光線/彩度/尺度),而非抽象品質詞 —
+// 否則 Gemini 把三段收斂成幾乎一樣。playful/surreal 另搭 BOLD override 鬆綁品牌美學鎖定。
+const CREATIVE_SCALE_DIRECTION: Record<CreativeScale, string> = {
+  realistic:
+    'CREATIVE SCALE = GROUNDED REALISM (photoreal, on-brand). Camera: natural eye-level or a gentle editorial angle, like a real interior/product photograph. Composition: the product sits believably on a real surface at true real-world scale; nothing oversized, nothing impossible. Lighting: soft natural directional light with true contact shadows and ambient occlusion consistent with one dominant light source; color temperature, exposure and depth-of-field all match the surrounding scene. Color: restrained, natural, on-brand palette. The result must read as one genuine photograph taken in that place — absolutely never floating, never an obvious cut-and-paste composite, never mismatched lighting between product and background.',
+  playful:
+    'CREATIVE SCALE = PLAYFUL CRAFT (clearly elevated beyond a plain shot). Keep believable physics, real contact shadows and unified lighting, BUT this image MUST be visibly more designed than a normal product photo — introduce at least ONE bold, concrete twist: a dynamic camera angle (notably low or high, or a slight dutch tilt), one exaggerated prop or playful scale shift, a vivid accent color, or a graphic stylised backdrop. Saturated accent color is allowed. Characterful, art-directed and cohesive — never a plain catalog shot, never a random collage.',
+  surreal:
+    'CREATIVE SCALE = INTENTIONAL SURREALISM (must look OBVIOUSLY different from a realistic shot). Build a bold, dreamlike, conceptually surreal hero image: use a dramatic NON-eye-level camera (worm\'s-eye, bird\'s-eye, or a strong dutch tilt), theatrical or colored cinematic lighting, deliberate large scale shifts, and an imaginative or impossible environment / staging. Rich saturated, striking color is welcome and encouraged. The product itself stays unchanged, but stage it theatrically (it may float, tower, or sit somewhere impossible). CRITICAL: it must still be ONE cohesive image with a single clear concept and internally consistent lighting and shadows across every element — the surreal placement is deliberate art direction, so lighting, shadow, scale and perspective stay unified and intentional. It must read as a crafted surreal artwork — never as a product clumsily pasted onto an unrelated stock background.',
+}
+
+// playful/surreal 用:主動鬆綁品牌 aesthetic anchor 的「muted/quiet/never-exuberant」鉗制,
+// 否則安靜低彩度的品牌鐵律會把大膽模式拉回跟寫實一樣。仍保留「不可廉價」的底線。
+const BOLD_SCALE_AESTHETIC_OVERRIDE =
+  'CREATIVE OVERRIDE (this image uses a BOLD creative scale): you may deliberately depart from the muted, quiet, restrained brand palette and mood described above. Vivid saturated color, dramatic theatrical or colored lighting, exuberant dynamic composition, and surreal scale/staging are ENCOURAGED. Disregard any earlier instruction to stay muted, quiet, low-saturation, never-exuberant or never-busy. (Still avoid genuinely CHEAP execution: no Canva/PowerPoint template look, no clip-art or sticker graphics, no amateur graphic design, no phone-camera HDR.)'
+
+// 大膽模式用的較輕 quality failsafe:保留「不可廉價」,但放掉「禁高彩度/戲劇性」這些壓制大膽的條款。
+const QUALITY_FAILSAFE_BOLD =
+  'Quality failsafe (bold creative scale) — these still look cheap and remain forbidden: Canva or PowerPoint or Word template aesthetic; clip-art, generic icons, sticker graphics; amateur templated advertising-poster layout; mass-market IKEA furniture; phone-camera HDR or accidental flat overhead lighting; toothy fake stock-photo smiles. Saturated color, dramatic/colored/theatrical lighting, bold scale and surreal staging are ALLOWED and encouraged at this scale.'
+
+// 文字紅線 — 跨所有創意尺度恆禁 AI 自生「事實型文字」(合規)。playful/surreal 放寬的只是「非宣稱氛圍字」。
+const TEXT_FACT_REDLINE =
+  'ABSOLUTE TEXT RED LINE (never violate, any creative scale): do NOT invent or render any factual claim text that was not provided — no prices, no numbers, no percentages, no specs, no certifications, no endorsements, no awards, no store counts, no medical or efficacy claims. Inventing such text is false advertising.'
+
+// 依創意尺度回傳 Level 2 的文字自由度規則。realistic 嚴格只用 user 的字;playful/surreal 允許非宣稱氛圍字。
+function buildTextLibertyRules(scale: CreativeScale): string[] {
+  if (scale === 'realistic') {
+    return [
+      '- No invented text — render ONLY the exact text provided above. Do NOT add slogans, decorative labels, watermarks, or brand stamps not in the list.',
+      `- ${TEXT_FACT_REDLINE}`,
+    ]
+  }
+  // playful / surreal
+  return [
+    '- You MAY add a small amount of non-claim mood/atmosphere wording or decorative typographic accents that fit the creative concept (e.g. a short evocative phrase, a season word), in addition to the provided text — keep it tasteful and sparse, never cluttered.',
+    `- ${TEXT_FACT_REDLINE}`,
+  ]
+}
+
+function buildAestheticDirection(store: AssetStore, includeHumans: boolean, scale: CreativeScale = 'realistic'): string {
+  const bold = scale !== 'realistic'
   const parts = [BRAND_AESTHETIC_ANCHORS[store]]
   if (includeHumans) parts.push(HUMAN_DIRECTION)
   parts.push(INTERIOR_PROP_DIRECTION)
   parts.push(TYPOGRAPHY_DIRECTION)
-  parts.push(QUALITY_FAILSAFE)
+  // 大膽模式:換較輕的 failsafe + 加 override 鬆綁品牌美學鉗制;寫實模式:維持完整品牌鐵律。
+  if (bold) {
+    parts.push(QUALITY_FAILSAFE_BOLD)
+    parts.push(BOLD_SCALE_AESTHETIC_OVERRIDE)
+  } else {
+    parts.push(QUALITY_FAILSAFE)
+  }
   return parts.join('\n\n')
 }
 
@@ -30,6 +79,18 @@ const LEVEL_2_NEGATIVE_PROMPT = [
   'No people (unless explicitly in scene direction), no plastic 3D render style, no artificial HDR, no over-saturation, no cartoon style, no watermarks, no fake brand logos beyond what is explicitly listed in the text rendering block.',
   'NO Canva-template look, NO PowerPoint slide design, NO amateur graphic design, NO clip-art, NO stock-photo aesthetic, NO templated "advertising poster" feel.',
 ].join(' ')
+
+// 大膽模式(playful/surreal)用的 negative prompt:拿掉「no over-saturation」(那會壓制大膽彩度),
+// 仍保留「不可廉價」(Canva/clip-art/amateur)底線。
+const LEVEL_2_NEGATIVE_PROMPT_BOLD = [
+  'No watermarks, no fake brand logos beyond what is explicitly listed in the text rendering block.',
+  'NO Canva-template look, NO PowerPoint slide design, NO amateur graphic design, NO clip-art, NO sticker graphics. (Saturated color and dramatic lighting are allowed at this creative scale.)',
+].join(' ')
+
+// 依創意尺度挑 Level 2/3 的 negative prompt。
+function level2NegativeForScale(scale: CreativeScale): string {
+  return scale === 'realistic' ? LEVEL_2_NEGATIVE_PROMPT : LEVEL_2_NEGATIVE_PROMPT_BOLD
+}
 
 // 比例 outpaint 提示 — ref 是某比例、輸出是另一比例時用
 function buildOutpaintNote(refRatio: string, outputRatio: string): string {
@@ -200,8 +261,10 @@ export function buildLevel3Prompt(opts: {
   store: AssetStore
   variation: Level3Variation
   hasProductImage: boolean
+  creativeScale?: CreativeScale
 }): string {
   const parts: string[] = []
+  const scale: CreativeScale = opts.creativeScale ?? 'realistic'
 
   // 商品圖優先指令(若有)
   if (opts.hasProductImage) {
@@ -214,9 +277,12 @@ export function buildLevel3Prompt(opts: {
     )
   }
 
+  // 創意尺度視覺指令(提前 inject,優先吸收)
+  parts.push(CREATIVE_SCALE_DIRECTION[scale])
+
   // 品牌 aesthetic anchor 提前 inject(模型優先吸收)
   // catalog 無人,lifestyle 有人 → human direction 只在 lifestyle 加
-  parts.push(buildAestheticDirection(opts.store, opts.variation.kind === 'lifestyle'))
+  parts.push(buildAestheticDirection(opts.store, opts.variation.kind === 'lifestyle', scale))
 
   if (opts.variation.kind === 'catalog') {
     parts.push(buildLevel3CatalogBlock(opts.brief, opts.store))
@@ -224,8 +290,8 @@ export function buildLevel3Prompt(opts: {
     parts.push(buildLevel3LifestyleBlock(opts.brief, opts.store, opts.variation))
   }
 
-  // Level 3 用允許文字的 negative prompt
-  parts.push(LEVEL_2_NEGATIVE_PROMPT)
+  // Level 3 negative prompt 依創意尺度(大膽模式放寬彩度)
+  parts.push(level2NegativeForScale(scale))
   return parts.join('\n\n')
 }
 
@@ -251,7 +317,7 @@ const BRAND_TYPOGRAPHY: Record<AssetStore, string> = {
   bedding: 'warm modern sans-serif typography with friendly approachable feel (AUSTIN brand — Taiwanese home bedding, lifestyle warmth)',
 }
 
-function buildTextRenderingBlock(ad: AdContent, store: AssetStore): string {
+function buildTextRenderingBlock(ad: AdContent, store: AssetStore, scale: CreativeScale): string {
   const lines: string[] = []
   lines.push('RENDER THE FOLLOWING TEXT DIRECTLY ONTO THE IMAGE as part of the composition (this is a complete advertisement, not a base image):')
   lines.push('')
@@ -270,15 +336,22 @@ function buildTextRenderingBlock(ad: AdContent, store: AssetStore): string {
       lines.push(`  • ${f.title.trim()}${subPart}`)
     }
   }
+  // 留白編排自動化:文字填得少(只有標題)→ 切極簡 editorial 版面,讓「少」變「精」,不靠捏字填版。
+  const sparse = !ad.subtitle?.trim() && !ad.endorsement?.trim() && features.length === 0
   lines.push('')
   lines.push('TEXT RENDERING RULES (mandatory):')
   lines.push('- Language: Traditional Chinese characters (繁體中文) — render every character exactly as written above, no substitutions, no typos, no simplification, no transliteration.')
   lines.push(`- Typography style: ${BRAND_TYPOGRAPHY[store]}.`)
-  lines.push('- Layout: hierarchical — headline largest and most eye-catching, subtitle smaller below, features as compact list, endorsement small and discreet. Group related elements together; do not scatter text randomly.')
+  if (sparse) {
+    lines.push('- MINIMALIST EDITORIAL LAYOUT (few words provided): embrace generous negative space with one strong, beautifully set headline as the focal point — make sparse text look intentional and premium (like a high-end editorial ad), do NOT fill the empty space with invented copy.')
+  } else {
+    lines.push('- Layout: hierarchical — headline largest and most eye-catching, subtitle smaller below, features as compact list, endorsement small and discreet. Group related elements together; do not scatter text randomly.')
+  }
   lines.push('- Contrast: ensure all text is highly readable against its background (use white/light text on dark areas, or dark/black text on light areas; add subtle drop shadow or semi-transparent backing if needed for legibility).')
   lines.push('- Placement: place text in clean composition zones that do not cover the hero product. Headlines often work in upper-third or lower-third of frame.')
   lines.push('- Brand name capitalization (when text contains brand names): SNOOPY, PEANUTS, AUSTIN, AZING must be ALL CAPS; Sleeptrain capitalized as "Sleeptrain"; Classic Teddy as two capitalized words.')
-  lines.push('- No invented text — only render the exact text provided above. Do NOT add slogans, decorative labels, watermarks, or fake brand stamps not in the list.')
+  // 文字自由度依創意尺度;紅線(禁事實型文字)跨所有模式恆禁。
+  for (const rule of buildTextLibertyRules(scale)) lines.push(rule)
   return lines.join('\n')
 }
 
@@ -288,6 +361,7 @@ export function buildPrompt({
   sceneTemplate,
   freeformDescription,
   stylePreset,
+  creativeScale,
   additionalNotes,
   hasProductImage,
   hasReferenceImage,
@@ -301,6 +375,7 @@ export function buildPrompt({
   sceneTemplate?: SceneTemplate
   freeformDescription?: string
   stylePreset: StylePreset
+  creativeScale?: CreativeScale   // 創意尺度:寫實/巧思/超現實(預設 realistic)
   additionalNotes?: string
   hasProductImage?: boolean       // 是否上傳商品圖(model 的第 1 張參考圖)
   hasReferenceImage?: boolean     // 是否上傳場景/風格參考圖(reference mode 才有,model 的第 2 張)
@@ -309,6 +384,7 @@ export function buildPrompt({
   refRatio?: string               // 參考圖實際比例字串(如 "1:1")— 用來偵測是否需要 outpaint
   outputRatio?: string            // 本次輸出比例字串(如 "16:9")
 }): string {
+  const scale: CreativeScale = creativeScale ?? 'realistic'
   const parts: string[] = []
   const product = PRODUCT_BY_STORE[store]
 
@@ -365,14 +441,17 @@ export function buildPrompt({
 
   if (additionalNotes) parts.push(`Additional requirement: ${additionalNotes}`)
 
+  // 創意尺度視覺指令 — 緊接場景描述/風格之後、aesthetic anchors 之前,讓模型優先吸收。
+  parts.push(CREATIVE_SCALE_DIRECTION[scale])
+
   // 品牌 aesthetic anchor(放在 negative prompt 之前,讓模型在收尾時再吸收一遍)
   // Level 1/2 預設無人物(NEGATIVE_PROMPT 禁止),所以不加 human direction
-  parts.push(buildAestheticDirection(store, false))
+  parts.push(buildAestheticDirection(store, false, scale))
 
   if (level === 'level2' && adContent && adContent.title?.trim()) {
-    // Level 2:把廣告文字直接燒進圖,改用 LEVEL_2_NEGATIVE_PROMPT(允許文字)
-    parts.push(buildTextRenderingBlock(adContent, store))
-    parts.push(LEVEL_2_NEGATIVE_PROMPT)
+    // Level 2:把廣告文字直接燒進圖,negative prompt 依創意尺度(大膽模式放寬彩度)
+    parts.push(buildTextRenderingBlock(adContent, store, scale))
+    parts.push(level2NegativeForScale(scale))
   } else {
     // Level 1:保留留白給後製加字,沿用嚴格 negative prompt(禁止任何文字)
     parts.push('Leave adequate empty space in the composition for text overlay (Level 1 base image mode).')
