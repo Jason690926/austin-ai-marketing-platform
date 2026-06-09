@@ -4,7 +4,7 @@ import { NEGATIVE_PROMPT } from './brand-knowledge'
 // 品牌專屬 aesthetic anchor — 解決「場景廉價」問題
 // 寫成 prose 段落,避免 ===/條列符號被 Gemini 誤判為 function call(MALFORMED_FUNCTION_CALL bug)
 const BRAND_AESTHETIC_ANCHORS: Record<AssetStore, string> = {
-  bedding: 'Aesthetic anchor for AUSTIN HOME bedding. Reference: Kinfolk magazine editorial, MUJI Hotel interiors, Apartamento magazine, Japanese designer residences (Schemata Architects, Jo Nagasaka). Palette: muted earth tones — oat, ivory, raw cotton, dusty sage, soft terracotta, warm wood; never oversaturated pink, never candy colors. Light: soft overcast natural light filtered through sheer linen curtains, or a single warm ceramic table lamp; directional with intentional shadow; never blown-out windows, never phone-camera HDR, never flat overhead light. Architecture: refined contemporary Japanese-influenced or Nordic-minimalist bedroom with white plaster walls, raw oak beams, low platform beds, a single piece of contemporary art; not generic IKEA-flat apartments. Materials: linen weave, raw cotton, stoneware, ceramics, raw oak, brass — tactile, premium, natural; render fabric weave and fiber detail visibly. Mood: quiet contemplation, domestic warmth, refined solitude; never exuberant, never busy.',
+  bedding: 'Aesthetic anchor for AUSTIN bedding. Reference: Kinfolk magazine editorial, MUJI Hotel interiors, Apartamento magazine, Japanese designer residences (Schemata Architects, Jo Nagasaka). Palette: muted earth tones — oat, ivory, raw cotton, dusty sage, soft terracotta, warm wood; never oversaturated pink, never candy colors. Light: soft overcast natural light filtered through sheer linen curtains, or a single warm ceramic table lamp; directional with intentional shadow; never blown-out windows, never phone-camera HDR, never flat overhead light. Architecture: refined contemporary Japanese-influenced or Nordic-minimalist bedroom with white plaster walls, raw oak beams, low platform beds, a single piece of contemporary art; not generic IKEA-flat apartments. Materials: linen weave, raw cotton, stoneware, ceramics, raw oak, brass — tactile, premium, natural; render fabric weave and fiber detail visibly. Mood: quiet contemplation, domestic warmth, refined solitude; never exuberant, never busy.',
   mattress: 'Aesthetic anchor for Sleeptrain mattress (American-California luxury). Reference: Wallpaper* private residence reviews, Mandarin Oriental and St. Regis hotel suite photography, Architectural Digest American luxury homes, Restoration Hardware catalog. Palette: deep walnut, champagne gold, charcoal, oxblood burgundy, brushed brass; warm sophisticated luxury, not garish. Light: cinematic directional warm tungsten, single key light, deep controlled shadows; never flat HDR, never overexposed. Architecture: 5-star hotel suite or upscale Californian residence with deep walnut headboards, heavy textured drapes, marble or stone surfaces, refined crown molding. Materials: silk, velvet, leather, brushed brass, marble, dark wood — premium, sensual, weighty. Mood: sophisticated, refined, hotel-luxury aspirational; never cheesy newlywed-stock-photo, never candy-colored.',
 }
 
@@ -46,7 +46,7 @@ const PRODUCT_PLACEHOLDER = '{{PRODUCT}}'
 
 const PRODUCT_BY_STORE: Record<AssetStore, string> = {
   mattress: 'Sleeptrain premium mattress',
-  bedding: 'AUSTIN HOME bedding set (pillows, duvet, fitted sheet)',
+  bedding: 'AUSTIN bedding set (pillows, duvet, fitted sheet)',
 }
 
 function renderProduct(template: string, store: AssetStore): string {
@@ -160,7 +160,7 @@ function buildLevel3CatalogBlock(brief: string, store: AssetStore): string {
     '- Traditional Chinese only (繁體中文) — render every character exactly, no typos, no simplification',
     `- Typography style: ${BRAND_TYPOGRAPHY[store]}`,
     '- High contrast, clean readability',
-    '- Brand cap rules: SNOOPY, PEANUTS, AUSTIN HOME, AZING = ALL CAPS; Sleeptrain capitalized; Classic Teddy as two capitalized words',
+    '- Brand cap rules: SNOOPY, PEANUTS, AUSTIN, AZING = ALL CAPS; Sleeptrain capitalized; Classic Teddy as two capitalized words',
     '- DO NOT invent prices, percentages, or specific promotions not in the brief',
     '- Only render text in Traditional Chinese unless brand names',
   ].join('\n')
@@ -190,7 +190,7 @@ function buildLevel3LifestyleBlock(brief: string, store: AssetStore, variation: 
     '- Traditional Chinese only (繁體中文)',
     `- Typography: ${BRAND_TYPOGRAPHY[store]}`,
     '- Small, discreet placement — text serves the scene, scene is NOT the headline',
-    '- Brand cap rules: SNOOPY, PEANUTS, AUSTIN HOME, AZING = ALL CAPS',
+    '- Brand cap rules: SNOOPY, PEANUTS, AUSTIN, AZING = ALL CAPS',
     '- DO NOT invent prices, percentages, or specific promotions',
   ].join('\n')
 }
@@ -248,7 +248,7 @@ export function planLevel3Variations(catalogCount: number, lifestyleCount: numbe
 
 const BRAND_TYPOGRAPHY: Record<AssetStore, string> = {
   mattress: 'modern luxury typography with serif headlines (Sleeptrain brand — premium American mattress positioning, suggests upscale hotel signage)',
-  bedding: 'warm modern sans-serif typography with friendly approachable feel (AUSTIN HOME brand — Taiwanese home bedding, lifestyle warmth)',
+  bedding: 'warm modern sans-serif typography with friendly approachable feel (AUSTIN brand — Taiwanese home bedding, lifestyle warmth)',
 }
 
 function buildTextRenderingBlock(ad: AdContent, store: AssetStore): string {
@@ -277,7 +277,7 @@ function buildTextRenderingBlock(ad: AdContent, store: AssetStore): string {
   lines.push('- Layout: hierarchical — headline largest and most eye-catching, subtitle smaller below, features as compact list, endorsement small and discreet. Group related elements together; do not scatter text randomly.')
   lines.push('- Contrast: ensure all text is highly readable against its background (use white/light text on dark areas, or dark/black text on light areas; add subtle drop shadow or semi-transparent backing if needed for legibility).')
   lines.push('- Placement: place text in clean composition zones that do not cover the hero product. Headlines often work in upper-third or lower-third of frame.')
-  lines.push('- Brand name capitalization (when text contains brand names): SNOOPY, PEANUTS, AUSTIN HOME, AZING must be ALL CAPS; Sleeptrain capitalized as "Sleeptrain"; Classic Teddy as two capitalized words.')
+  lines.push('- Brand name capitalization (when text contains brand names): SNOOPY, PEANUTS, AUSTIN, AZING must be ALL CAPS; Sleeptrain capitalized as "Sleeptrain"; Classic Teddy as two capitalized words.')
   lines.push('- No invented text — only render the exact text provided above. Do NOT add slogans, decorative labels, watermarks, or fake brand stamps not in the list.')
   return lines.join('\n')
 }

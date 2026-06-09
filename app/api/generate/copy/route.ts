@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getGeminiClient, COPY_MODEL } from '@/lib/gemini/client'
 import { buildCopywriterSystemPrompt, buildCopyBrief } from '@/lib/prompts/copywriter'
 import { isStructuredPurpose } from '@/lib/copy/parse-sections'
-import { STRUCTURED_SCHEMAS, serializeSections, validateQuota, type StructuredPurpose } from '@/lib/copy/structured-output'
+import { STRUCTURED_SCHEMAS, serializeSections, validateQuota, clipStructured, type StructuredPurpose } from '@/lib/copy/structured-output'
 import type { GenerateCopyRequest, AssetStore, AssetPurpose } from '@/types'
 
 const STORES: AssetStore[] = ['mattress', 'bedding']
@@ -89,11 +89,14 @@ export async function POST(request: Request) {
       try {
         const data = JSON.parse(raw)
         const purpose = body.purpose as StructuredPurpose
+        // 先對「模型原始輸出」做 validateQuota,把 overshoot 記進 log(診斷模型遵從度)。
         const warnings = validateQuota(purpose, data)
         if (warnings.length > 0) {
           console.warn(`[generate/copy] ${purpose} 滿配/字數警告:`, warnings)
         }
-        copyText = serializeSections(purpose, data)
+        // 再用智慧截斷兜底:模型壓不住的超字欄位切在句界、保證不超上限,然後才序列化。
+        const clipped = clipStructured(purpose, data)
+        copyText = serializeSections(purpose, clipped)
       } catch (parseErr) {
         console.warn('[generate/copy] 結構化 JSON 解析失敗,退回原始文字:', parseErr)
         copyText = raw

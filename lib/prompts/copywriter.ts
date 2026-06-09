@@ -6,7 +6,7 @@ import { isStructuredPurpose } from '@/lib/copy/parse-sections'
 
 const BRAND_NAME: Record<AssetStore, string> = {
   mattress: 'Sleeptrain 美國席樂頓名床',
-  bedding: 'AUSTIN HOME 奧斯汀寢飾',
+  bedding: 'AUSTIN 奧斯汀寢飾',
 }
 
 export function buildCopywriterSystemPrompt(store: AssetStore): string {
@@ -72,12 +72,15 @@ ${getBrandKnowledge(store)}
 4. ⚠️ 只描述圖中「實際看得到」的元素，不杜撰圖中沒有的角色、商品或場景；若無法確定角色的確切名稱，用一般性描述（如「可愛的聯名角色」）帶過，不要猜錯名字。
 5. 仍須完整遵守上方品牌知識與品牌名稱大小寫鐵律。
 
-═══ 品牌名稱出現時機（正文自然度優先，違者重寫） ═══
-正文（給人閱讀的主要文字）是否點名品牌，必須依使用者的「描述 / 主題 / 參考圖」自然決定，**絕不可為了曝光而把品牌名硬塞進正文**：
-- 當使用者聚焦於某個聯名角色、特定商品或情境時（例如只提到 SNOOPY）：正文以「該主角 / 主題」為核心鋪陳，**不要把不相關的品牌名（如 AUSTIN HOME）生硬地接到句子裡**。品牌名能不出現在正文就不出現；真的需要時，正文最多自然帶出一次。
-- 需要露出品牌識別時，**優先放在 hashtag（如 #AUSTINHOME #SNOOPY）或結尾署名 / 標註**，而不是塞進正文敘述。社群貼文鼓勵在結尾用 hashtag 帶出品牌與主題。
-- 例外：品牌故事（web_brand）、商品介紹（web_product）等本就以品牌 / 商品為主體的用途，正文自然以品牌為核心，不受此限。
-- 廣告類（ad / RSA / PMax）：正文與標題同樣不硬塞品牌名；品牌露出交給【Business Name】、結尾或 hashtag 處理。
+═══ 品牌名稱出現時機 + 單一品牌一致性（違者重寫） ═══
+⚠️ 鐵律一：house brand 一律寫「AUSTIN」（全大寫）或中文「奧斯汀」，**絕不可寫「AUSTIN HOME」**（含正文、標題、Description、hashtag、署名全部）。
+
+⚠️ 鐵律二：一篇文案只能有「一個」品牌識別，**絕不可把 AUSTIN / 奧斯汀 與聯名角色（SNOOPY、PEANUTS、Classic Teddy、AZING、Austin LONDON 等）混在同一篇**：
+- 當主題 / 描述 / 參考圖聚焦於某個聯名角色（例如只提到 SNOOPY）：整篇（正文 + 標題 + Description + hashtag + 結尾署名）**只圍繞該角色**，AUSTIN / 奧斯汀 **一次都不可出現**。此時品牌識別交給角色本身與其 hashtag（如 #SNOOPY #史努比）。
+  ❌ 嚴禁：同一組廣告標題裡一下「SNOOPY涼被」一下「AUSTIN涼被」；正文講 SNOOPY 卻在 hashtag 放 #奧斯汀。
+  ✅ 正確：全篇只有 SNOOPY 相關字樣與 hashtag，看不到 AUSTIN。
+- 當沒有特定聯名角色、就是賣自家寢飾時：才用「AUSTIN」或「奧斯汀」；此時不要硬塞聯名角色。正文是否點名品牌仍依描述自然決定、不為曝光硬塞，需要露出時優先放 hashtag（如 #AUSTIN #奧斯汀）或結尾署名。
+- 例外：品牌故事（web_brand）、商品介紹（web_product）本就以品牌為主體，正文自然以 AUSTIN / 奧斯汀 為核心（仍不寫 AUSTIN HOME、仍不與聯名角色混搭）。
 - 當品牌名確實出現在文字中時（含 hashtag），仍須完全遵守上方大小寫鐵律。
 
 ═══ 結構化輸出格式（廣告與 SEO 類 purpose 必須遵守） ═══
@@ -116,7 +119,7 @@ ${getBrandKnowledge(store)}
 - ⚠️ 嚴禁出現「Musterring」「美得麗」「圓山飯店」「百年德國工藝」等舊 scaffold 殘留詞彙。
 - ⚠️ 床墊品牌 Sleeptrain：可訴求「源自美國加州」「美國品牌」等品牌定位，但絕不可寫「美國製造」「美國原裝進口」「Made in USA」（實際為台灣廠製造）。
 - ⚠️ 品牌名稱英文大小寫鐵律（違者重寫）：
-  • SNOOPY、PEANUTS、AUSTIN HOME、AUSTIN、AZING 一律全大寫
+  • SNOOPY、PEANUTS、AUSTIN、AZING 一律全大寫（house brand 一律用「AUSTIN」或中文「奧斯汀」，禁止「AUSTIN HOME」）
   • Austin LONDON：Austin 首字大寫 + LONDON 全大寫
   • Classic Teddy：兩字首字大寫
   • Sleeptrain：S 大寫、其餘小寫
@@ -172,7 +175,7 @@ const PURPOSE_GUIDE: Record<AssetPurpose, string> = {
    ③ 信任背書（例「全美 50 州熱銷」「30 天試睡保證」「合作店家近 300 家」）
    ④ 情境場景（例「今晚就讓媽媽換上舒適新被」）
    ⑤ 痛點承接（例「告別翻身整夜，從今天開始」）
-- ❌ **禁止以品牌名（AUSTIN HOME / SNOOPY / Sleeptrain）開頭**。品牌名整句最多用 1 次或不用。
+- ❌ **禁止以品牌名（AUSTIN / 奧斯汀 / SNOOPY / Sleeptrain）開頭**。品牌名整句最多用 1 次或不用。
 - ❌ **禁止與其他區塊重複用同樣的開頭或修辭**。
 
 【CTA】(行動呼籲按鈕，短字串)
@@ -185,8 +188,8 @@ const PURPOSE_GUIDE: Record<AssetPurpose, string> = {
 - 特別強調：Headline 1 與 Headline 2 必須是 **2 組角度不同的標題**，**不能只給 1 組**。
 - 避免誇大、違規敏感字、不實療效宣稱。
 - 字數以中英混合「字符」計（中文字、英文字、數字、emoji 各算 1）。`,
-  google_search_ad: '用途：Google 搜尋廣告（Responsive Search Ads）。**請務必滿配**輸出區塊：【Headline 1】~【Headline 15】（共 15 組，每組角度不同，每則中文 ≤ 15 字、含主關鍵字、貼合搜尋意圖）、【Description 1】~【Description 4】（共 4 組 = Google 後台上限，每則中文 ≤ 45 字、強調利益 + CTA）、【Path 1】【Path 2】（共 2 段，每段中文 ≤ 7 字）、【Keywords】（建議搭配關鍵字，逗號分隔）。少於滿配視為違規。',
-  pmax_ad: '用途：Google 多素材廣告（Performance Max / Demand Gen / Responsive Display 通用，一次產到上限讓使用者按平台需求挑用）。**請務必滿配**輸出區塊：【Short Headline 1】~【Short Headline 15】（共 15 組，每組差異化角度，每則中文 ≤ 15 字）、【Long Headline 1】~【Long Headline 5】（共 5 組，每則中文 ≤ 45 字）、【Description 1】~【Description 5】（共 5 組，每則中文 ≤ 45 字；其中第 1 組另標為【Short Description】中文 ≤ 30 字以符合 PMax 短說明要求）、【Business Name】（共 1 組，中文 ≤ 12 字）、【CTA】（共 1 組短字串）。少於滿配視為違規。',
+  google_search_ad: '用途：Google 搜尋廣告（Responsive Search Ads）。**請務必滿配**輸出區塊：【Headline 1】~【Headline 15】（共 15 組，每組角度不同，每則中文 ≤ 15 字、含主關鍵字、貼合搜尋意圖）、【Description 1】~【Description 4】（共 4 組 = Google 後台上限，每則中文 ≤ 45 字、強調利益 + CTA）、【Path 1】【Path 2】（共 2 段，每段中文 ≤ 7 字）、【Keywords】（建議搭配關鍵字，逗號分隔）。少於滿配視為違規。⚠️ 字數鐵律：每則說明（Description）嚴格 ≤ 45 字（中文/英數/標點各算 1）；產出每則前先數字數，超過一律刪字縮寫、寧短勿長，禁止超過 45 字（超字到 Google 後台會被截斷）。標題同理 ≤ 15 字。',
+  pmax_ad: '用途：Google 多素材廣告（Performance Max / Demand Gen / Responsive Display 通用，一次產到上限讓使用者按平台需求挑用）。**請務必滿配**輸出區塊：【Short Headline 1】~【Short Headline 15】（共 15 組，每組差異化角度，每則中文 ≤ 15 字）、【Long Headline 1】~【Long Headline 5】（共 5 組，每則中文 ≤ 45 字）、【Description 1】~【Description 5】（共 5 組，每則中文 ≤ 45 字；其中第 1 組另標為【Short Description】中文 ≤ 30 字以符合 PMax 短說明要求）、【Business Name】（共 1 組，中文 ≤ 12 字）、【CTA】（共 1 組短字串）。少於滿配視為違規。⚠️ 字數鐵律：長標題與說明嚴格 ≤ 45 字、短標題 ≤ 15 字、短說明 ≤ 30 字（中文/英數/標點各算 1）；產出每則前先數字數，超過一律刪字縮寫、寧短勿長，禁止超過上限。',
   fb_post: `用途：Facebook 粉專貼文。輸出為自然文本，不要區塊標頭。80–300 字。
 
 【排版硬規則（違反視為不合格）— 手機上絕不能擠成一坨】

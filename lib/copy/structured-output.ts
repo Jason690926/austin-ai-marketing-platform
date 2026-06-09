@@ -49,8 +49,19 @@ export interface SeoData {
 }
 
 // ── Schema 小工具 ────────────────────────────────────────────
+// 字數限制無法在 schema 強制(StringSchema 無 maxLength),只能寫進 description 指令。
+// 實測 Gemini 會把上限當「軟目標」而 overshoot(RSA 說明常 49–53 字 / 上限 45),
+// 因此字數指令一律用「硬自檢 + 寧短勿長」措辭,把模型往上限「以下」拉。
+function withLimit(base: string, limit: number): string {
+  return `${base}。⚠️ 嚴格上限 ${limit} 個字(中文/英數/標點/emoji 各算 1 個字);產出前務必逐字計數,超過一律刪字縮寫重寫,寧可短於上限也不要超過。`
+}
+
 const str = (description: string): ResponseSchema =>
   ({ type: SchemaType.STRING, description } as ResponseSchema)
+
+// 有字數上限的純字串欄位。
+const strLimited = (base: string, limit: number): ResponseSchema =>
+  str(withLimit(base, limit))
 
 const strArray = (
   min: number,
@@ -64,6 +75,14 @@ const strArray = (
     items: { type: SchemaType.STRING, description: itemDescription },
   } as unknown as ResponseSchema)
 
+// 有字數上限的字串陣列欄位。
+const strArrayLimited = (
+  min: number,
+  max: number,
+  base: string,
+  limit: number,
+): ResponseSchema => strArray(min, max, withLimit(base, limit))
+
 // ── responseSchema 定義 ──────────────────────────────────────
 // 字數限制無法在 schema 強制(StringSchema 無 maxLength),改寫進 description 指令 + validateQuota 後驗證。
 export const STRUCTURED_SCHEMAS: Record<StructuredPurpose, ResponseSchema> = {
@@ -71,8 +90,8 @@ export const STRUCTURED_SCHEMAS: Record<StructuredPurpose, ResponseSchema> = {
     type: SchemaType.OBJECT,
     properties: {
       primaryText: str('Meta 廣告主文案,80–150 字,用空行分 3–4 段,嵌 3–5 個 emoji,降低廣告感'),
-      headlines: strArray(2, 2, '短標題,每則 ≤ 25 中文字;兩組角度必須完全不同(如情感 vs 功能)'),
-      description: str('連結說明,≤ 30 中文字,不可以品牌名開頭,角度與主文案/標題差異化'),
+      headlines: strArrayLimited(2, 2, '短標題;兩組角度必須完全不同(如情感 vs 功能)', 25),
+      description: strLimited('連結說明,不可以品牌名開頭,角度與主文案/標題差異化', 30),
       cta: str('行動呼籲短字串,依 CTA 導向選用'),
     },
     required: ['primaryText', 'headlines', 'description', 'cta'],
@@ -81,9 +100,9 @@ export const STRUCTURED_SCHEMAS: Record<StructuredPurpose, ResponseSchema> = {
   google_search_ad: {
     type: SchemaType.OBJECT,
     properties: {
-      headlines: strArray(15, 15, 'RSA 標題,每則 ≤ 15 中文字,含主關鍵字,15 組角度各不相同'),
-      descriptions: strArray(4, 4, 'RSA 說明,每則 ≤ 45 中文字,強調利益 + 行動'),
-      paths: strArray(2, 2, '顯示網址路徑,每段 ≤ 7 中文字'),
+      headlines: strArrayLimited(15, 15, 'RSA 標題,含主關鍵字,15 組角度各不相同', 15),
+      descriptions: strArrayLimited(4, 4, 'RSA 說明,強調利益 + 行動', 45),
+      paths: strArrayLimited(2, 2, '顯示網址路徑', 7),
       keywords: str('建議搭配關鍵字,逗號分隔'),
     },
     required: ['headlines', 'descriptions', 'paths', 'keywords'],
@@ -92,11 +111,11 @@ export const STRUCTURED_SCHEMAS: Record<StructuredPurpose, ResponseSchema> = {
   pmax_ad: {
     type: SchemaType.OBJECT,
     properties: {
-      shortHeadlines: strArray(15, 15, '短標題,每則 ≤ 15 中文字,15 組差異化角度'),
-      longHeadlines: strArray(5, 5, '長標題,每則 ≤ 45 中文字'),
-      descriptions: strArray(5, 5, '說明,每則 ≤ 45 中文字'),
-      shortDescription: str('短說明,≤ 30 中文字(符合 PMax 短說明要求)'),
-      businessName: str('商家名稱,≤ 12 中文字'),
+      shortHeadlines: strArrayLimited(15, 15, '短標題,15 組差異化角度', 15),
+      longHeadlines: strArrayLimited(5, 5, '長標題', 45),
+      descriptions: strArrayLimited(5, 5, '說明', 45),
+      shortDescription: strLimited('短說明(符合 PMax 短說明要求)', 30),
+      businessName: strLimited('商家名稱', 12),
       cta: str('行動呼籲短字串'),
     },
     required: ['shortHeadlines', 'longHeadlines', 'descriptions', 'shortDescription', 'businessName', 'cta'],
@@ -106,8 +125,8 @@ export const STRUCTURED_SCHEMAS: Record<StructuredPurpose, ResponseSchema> = {
     type: SchemaType.OBJECT,
     properties: {
       h1: str('文章主標題 H1'),
-      metaTitle: str('Meta Title,≤ 30 中文字'),
-      metaDescription: str('Meta Description,≤ 80 中文字'),
+      metaTitle: strLimited('Meta Title', 30),
+      metaDescription: strLimited('Meta Description', 80),
       urlSlug: str('URL Slug,英文小寫加連字號'),
       keywords: str('主關鍵字 + 長尾,逗號分隔'),
       articleBody: str('文章內文,500–800 字,可用 ## H2 / ### H3,先給直接答案再補充,自然嵌入關鍵字'),
@@ -272,4 +291,54 @@ export function validateQuota(purpose: StructuredPurpose, data: any): string[] {
   }
 
   return warnings
+}
+
+// ── 智慧截斷:Gemini 對中文字數上限天生當軟目標,常 overshoot 幾個字,
+// 而 schema 無法硬鎖(StringSchema 無 maxLength)。route 端在序列化前對超字欄位套用此截斷兜底。
+// 策略:優先切在「上限內最後一個標點」收乾淨、不破句;標點太早(保留 < 60%)則硬切到上限。
+const CLIP_PUNCT = new Set(['。', '！', '？', '，', '、', '；', '：', '…', '」', '』', '）', '》', '】', '!', '?', ',', '.', ';', ':'])
+// 連接性標點:截在這些字尾讀起來像沒寫完(斷尾),收尾時去掉;句末標點(。！？…)則保留。
+const CONNECTOR_PUNCT = new Set(['，', '、', '；', '：', ',', ';', ':'])
+
+function stripTrailingConnectors(arr: string[]): string[] {
+  while (arr.length > 0 && CONNECTOR_PUNCT.has(arr[arr.length - 1])) arr.pop()
+  return arr
+}
+
+export function clipToLimit(s: string, limit: number): string {
+  const chars = Array.from(s ?? '')
+  if (chars.length <= limit) return s ?? ''
+
+  const head = chars.slice(0, limit)
+  // 從上限位置往回找最後一個標點。
+  for (let i = head.length - 1; i >= 0; i--) {
+    if (CLIP_PUNCT.has(head[i])) {
+      // 標點太早會保留太少內容 → 放棄句界、改硬切到上限,不浪費可用長度。
+      if (i + 1 >= Math.floor(limit * 0.6)) {
+        return stripTrailingConnectors(head.slice(0, i + 1)).join('')
+      }
+      break
+    }
+  }
+  // 硬切到上限;若剛好停在連接性標點上也一併去尾。
+  return stripTrailingConnectors(head.slice()).join('')
+}
+
+// 對一筆結構化資料的「有字數上限欄位」套用 clipToLimit,回傳截斷後的新物件(不改原物件)。
+// 上限沿用 QUOTA_RULES,與 validateQuota 同一份來源。
+export function clipStructured(purpose: StructuredPurpose, data: any): any {
+  const rules = QUOTA_RULES[purpose]
+  const out: any = { ...data }
+
+  for (const spec of rules.arrays) {
+    if (Array.isArray(out[spec.field])) {
+      out[spec.field] = out[spec.field].map((v: unknown) => clipToLimit(String(v ?? ''), spec.limit))
+    }
+  }
+  for (const s of rules.strings) {
+    if (typeof out[s.field] === 'string') {
+      out[s.field] = clipToLimit(out[s.field], s.limit)
+    }
+  }
+  return out
 }

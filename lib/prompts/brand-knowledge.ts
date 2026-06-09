@@ -23,7 +23,8 @@ export const BRAND_KNOWLEDGE_MATTRESS = `
 `.trim()
 
 export const BRAND_KNOWLEDGE_BEDDING = `
-品牌：AUSTIN HOME 奧斯汀寢飾（寢飾 / 居家床品）
+品牌：AUSTIN 奧斯汀寢飾（寢飾 / 居家床品）
+⚠️ 品牌顯示名稱：文案一律用「AUSTIN」（全大寫）或中文「奧斯汀」，**絕不可寫「AUSTIN HOME」**。
 官網：https://www.austinhome.com.tw/
 品牌標語：睡得好，生活更美好 / Make Today Amazing
 品牌價值：睡得好，生活更美好 —— 致力打造高品質、舒適、健康的寢具產品，透過美好織品為人們創造更美好的生活
@@ -47,11 +48,18 @@ export const BRAND_KNOWLEDGE_BEDDING = `
 ⚠️ 品牌名稱大小寫鐵律（不可違反，違者重寫）：
 - SNOOPY：永遠全大寫（不可寫 Snoopy / snoopy）
 - PEANUTS：永遠全大寫
-- AUSTIN HOME / AUSTIN：永遠全大寫
+- AUSTIN：永遠全大寫（house brand 一律寫「AUSTIN」或中文「奧斯汀」，**禁止寫「AUSTIN HOME」**）
 - AZING：永遠全大寫
 - Austin LONDON：固定這個大小寫（Austin 首字大寫、LONDON 全大寫）
 - Classic Teddy：固定這個大小寫（兩字首字大寫）
 - Sleeptrain：固定這個大小寫（S 大寫、其餘小寫，是品牌官方寫法）
+
+⚠️ 單一品牌一致性鐵律（不可違反，違者重寫）：
+一篇文案只能有「一個」品牌識別，**絕不可把 house brand（AUSTIN / 奧斯汀）與聯名角色 / 子品牌（SNOOPY、PEANUTS、Classic Teddy、AZING、Austin LONDON 等）混在同一篇**。
+- 當主題 / 描述 / 參考圖聚焦於某個聯名角色（例如 SNOOPY）時：整篇（正文 + 標題 + Description + hashtag + 結尾署名）**只圍繞該角色**，AUSTIN / 奧斯汀 **100% 不可出現**（一次都不行，含 hashtag 與署名）。
+- 當沒有特定聯名角色、就是賣 house brand 自家寢飾時：用「AUSTIN」或「奧斯汀」，此時不要硬塞聯名角色。
+- ❌ 反例（嚴禁）：同一組廣告標題裡同時出現「SNOOPY涼被」與「AUSTIN涼被」；正文講 SNOOPY 卻在 hashtag 放 #奧斯汀。
+- ✅ 正例：主打 SNOOPY → 全篇只有 SNOOPY / PEANUTS 相關字樣與 hashtag（#SNOOPY #史努比 等），完全不見 AUSTIN。
 `.trim()
 
 export function getBrandKnowledge(store: AssetStore): string {

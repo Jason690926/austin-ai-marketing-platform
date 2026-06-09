@@ -3,6 +3,8 @@ import {
   STRUCTURED_SCHEMAS,
   serializeSections,
   validateQuota,
+  clipToLimit,
+  clipStructured,
   type AdData,
   type RsaData,
   type PmaxData,
@@ -179,5 +181,63 @@ describe('validateQuota — 後驗證（非致命警告）', () => {
   it('缺欄位（空字串）→ 有警告', () => {
     const bad: AdData = { ...SAMPLE_AD, cta: '' }
     expect(validateQuota('ad', bad).length).toBeGreaterThan(0)
+  })
+})
+
+describe('clipToLimit — 智慧截斷（句界優先）', () => {
+  it('未超字 → 原樣返回', () => {
+    expect(clipToLimit('短句不超字', 10)).toBe('短句不超字')
+  })
+
+  it('超字 → 截到上限以內（code point 計）', () => {
+    const s = '一二三四五六七八九十一二三四五六七八九十'
+    expect(Array.from(clipToLimit(s, 12)).length).toBeLessThanOrEqual(12)
+  })
+
+  it('切在連接性標點（逗號）→ 去掉尾逗號收乾淨,不留斷尾', () => {
+    const s = '這是一段測試文字剛好十六個，後面還有更多文字需要被截斷掉'
+    const out = clipToLimit(s, 20)
+    expect(Array.from(out).length).toBeLessThanOrEqual(20)
+    expect(out.endsWith('，')).toBe(false)
+    expect(out.endsWith('個')).toBe(true)
+  })
+
+  it('切在句末標點（句號）→ 保留句號', () => {
+    const s = '前面是一段完整的句子結束了。後面又有更多文字超過上限需要截斷'
+    const out = clipToLimit(s, 20)
+    expect(Array.from(out).length).toBeLessThanOrEqual(20)
+    expect(out.endsWith('。')).toBe(true)
+  })
+
+  it('標點太早（保留太少）→ 改硬切到上限,不浪費長度', () => {
+    const s = '短，這後面是一段很長很長沒有任何標點符號的內容會一直延伸下去到超過上限'
+    const out = clipToLimit(s, 20)
+    // 標點在第 2 字,保留 2 字太少 → 應硬切到接近上限而非只留「短，」
+    expect(Array.from(out).length).toBeGreaterThan(10)
+    expect(Array.from(out).length).toBeLessThanOrEqual(20)
+  })
+})
+
+describe('clipStructured — 對超字欄位套用截斷', () => {
+  it('RSA 超字說明被截到 ≤ 45,標題數量與內容不變', () => {
+    const longDesc = 'SNOOPY奶霜極涼被，涼感全面升級，今年凍一夏！即刻體驗清涼，原價3480現享2480元。限時優惠中！'
+    const data: RsaData = { ...SAMPLE_RSA, descriptions: [longDesc, ...SAMPLE_RSA.descriptions.slice(1)] }
+    const clipped = clipStructured('google_search_ad', data) as RsaData
+    expect(Array.from(clipped.descriptions[0]).length).toBeLessThanOrEqual(45)
+    expect(clipped.headlines.length).toBe(15)
+    expect(clipped.headlines[0]).toBe(SAMPLE_RSA.headlines[0])
+  })
+
+  it('截斷後 validateQuota 不再有超字警告', () => {
+    const longDesc = 'SNOOPY奶霜極涼被，涼感全面升級，今年凍一夏！即刻體驗清涼，原價3480現享2480元。限時優惠中！'
+    const data: RsaData = { ...SAMPLE_RSA, descriptions: [longDesc, ...SAMPLE_RSA.descriptions.slice(1)] }
+    const clipped = clipStructured('google_search_ad', data)
+    expect(validateQuota('google_search_ad', clipped).filter(w => w.includes('超字'))).toEqual([])
+  })
+
+  it('未超字資料 → 原樣（內容不變）', () => {
+    const clipped = clipStructured('ad', SAMPLE_AD) as AdData
+    expect(clipped.headlines).toEqual(SAMPLE_AD.headlines)
+    expect(clipped.description).toBe(SAMPLE_AD.description)
   })
 })
