@@ -14,6 +14,6 @@ export function getGeminiClient(): GoogleGenerativeAI {
   return _client
 }
 
-// Gemini 2.5 Flash per confirmed platform spec (Google AI Studio free tier).
-// Overridable via env without code change.
-export const COPY_MODEL = process.env.GEMINI_COPY_MODEL || 'gemini-2.5-flash'
+// Gemini 3.5 Flash (GA 2026-05) — 取代已淘汰的 2.5 Flash,推理/指令遵循更強、成本相近。
+// Overridable via env without code change(想省成本可降回 gemini-3.1-flash-lite)。
+export const COPY_MODEL = process.env.GEMINI_COPY_MODEL || 'gemini-3.5-flash'

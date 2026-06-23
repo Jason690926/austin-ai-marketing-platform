@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import sharp from 'sharp'
 import { createClient } from '@/lib/supabase/server'
-import { generateImage, type ReferenceImage } from '@/lib/gemini/image'
+import { generateImage, IMAGE_MODEL_PRO, type ReferenceImage } from '@/lib/gemini/image'
 import {
   buildPrompt,
   buildLevel3Prompt,
@@ -324,6 +324,11 @@ export async function POST(request: Request) {
     isCustomStyle ? `Style direction: ${styleDesc}` : '',
   ].filter(Boolean).join(' ')
 
+  // 燒字用途(Level 2 完整廣告 / Level 3 自主)走 Nano Banana Pro:中文字保真度遠勝 Flash。
+  // Level 1 底圖無文字,維持 Flash 預設(省成本)。
+  const burnsText = level === 'level2' || level === 'level3'
+  const imageModel = burnsText ? IMAGE_MODEL_PRO : undefined
+
   const tasks = targets.map(async (target): Promise<
     | { ok: true; asset: Asset; label: string }
     | { ok: false; label: string; error: string }
@@ -357,6 +362,7 @@ export async function POST(request: Request) {
         prompt,
         aspectRatio: target.ratio,
         referenceImages,
+        model: imageModel,
       })
 
       // sharp 縮到精確 pixel(cover fit:填滿目標,多餘部分裁掉,不變形)

@@ -21,8 +21,8 @@
 
 - Next.js 14 App Router、TypeScript、Tailwind、shadcn/ui（`components/ui`）
 - 認證/DB：Supabase（`@supabase/ssr`，`lib/supabase/{client,server}.ts`，`middleware.ts` 守衛）
-- AI 文案：Gemini 2.5 Flash（`lib/gemini/client.ts`，模型可用 `GEMINI_COPY_MODEL` 覆寫）
-- AI 產圖：Gemini 2.5 Flash Image / Nano Banana（`lib/gemini/image.ts`，模型可用 `GEMINI_IMAGE_MODEL` 覆寫升 3.1 Flash / 3 Pro）+ `sharp` 後端裁縮到精確 pixel
+- AI 文案：Gemini 3.5 Flash（`lib/gemini/client.ts`，模型可用 `GEMINI_COPY_MODEL` 覆寫；2026-06-23 從淘汰的 2.5 Flash 升上來）
+- AI 產圖：雙模型分流 — Level 1 底圖走 Nano Banana 2（`gemini-3.1-flash-image`），**Level 2/3 燒字用途自動走 Nano Banana Pro（`gemini-3-pro-image`，thinking 模式中文字保真度最高）**；分別可用 `GEMINI_IMAGE_MODEL` / `GEMINI_IMAGE_MODEL_PRO` 覆寫（`lib/gemini/image.ts`）+ `sharp` 後端裁縮到精確 pixel
 - 型別集中於 `types/index.ts`
 - Prompt：
   - `lib/prompts/copywriter.ts` — 文案師人格 + `PURPOSE_GUIDE` + `buildCopyBrief`
@@ -90,7 +90,7 @@ npx tsc --noEmit     # 型別檢查（每次改完跑）
   - 自動寫入素材庫；商品圖優先存 `assets.reference_image_url`
   - 結果區每張有「下載」鈕（fetch as blob 繞跨網域）+「素材庫」連結
   - **重試機制**：Gemini 偶發 `MALFORMED_FUNCTION_CALL` / `OTHER` finishReason → 最多重試 3 次（指數退避 500ms→2000ms）
-  - **預設模型** `gemini-3.1-flash-image-preview`（Nano Banana 2，2026-02 GA，中文字渲染佳；2026-06-08 從 2.5 Flash Image 升上來）。可用 `GEMINI_IMAGE_MODEL` 覆寫：省成本降回 `gemini-2.5-flash-image`，求最高品質升 `gemini-3-pro-image-preview`
+  - **雙模型分流（2026-06-23）**：Level 1 底圖（無文字）走 `gemini-3.1-flash-image`（Nano Banana 2，GA）省成本；**Level 2/3 燒字用途自動走 `gemini-3-pro-image`（Nano Banana Pro，GA）** — thinking 模式先規劃版面再渲染，中文字保真度遠勝 Flash。route 端 `burnsText = level==='level2'||'level3'` 決定，`generateImage` 收 `model?` 參數。可用 `GEMINI_IMAGE_MODEL`（底圖）/ `GEMINI_IMAGE_MODEL_PRO`（燒字，想全程省成本可降回 `gemini-3.1-flash-image`）分別覆寫。⚠️ 舊的 `-preview` ID 已棄用（`gemini-3-pro-image-preview` 2026-06-25 關閉），全面換 GA ID
 - 文案產生器 UI：
   - 用途卡片分群（社群 / 廣告 / 官網·SEO）
   - **行銷檔期 chip**（年度 27 個檔期，依當月智能排序，分節日/百貨/季節 3 色）+ **自訂檔期描述欄位**（與 chip 並存）
@@ -114,8 +114,8 @@ npx tsc --noEmit     # 型別檢查（每次改完跑）
 
 ### 已知問題（下一步要處理）
 
-- **中文字渲染品質**：~~`gemini-2.5-flash-image` (standard 級) 中文字常錯字 / 變形~~ → **2026-06-08 已預設升 Nano Banana 2 (`gemini-3.1-flash-image-preview`)**，中文字渲染大幅改善。若長字串仍偶有瑕疵，終極解法可走「AI 留位 + 後端字體渲染器疊字」混合方案，或升 `gemini-3-pro-image-preview`。
-- **Lifestyle 圖偶爾仍 stock photo 感**：已 prompt 強化（HUMAN_DIRECTION + 6 個 brand-specific editorial archetypes，明列「不對鏡頭笑」「individual characterful faces」），但 model 限制下偶爾仍出現「亞洲新婚夫妻」trope。若仍不夠 editorial，下一步要嘛升 3 Pro，要嘛在 archetype 加更具體 model casting 描述。
+- **中文字渲染品質**：~~`gemini-2.5-flash-image` 中文字常錯字 / 變形~~ → ~~2026-06-08 升 Nano Banana 2~~ → **2026-06-23 燒字的 Level 2/3 已路由到 Nano Banana Pro (`gemini-3-pro-image`)**，thinking 模式先規劃版面再渲染，中文字保真度最高。若極長字串仍偶有瑕疵，終極解法仍是「AI 留位 + 後端字體渲染器疊字」混合方案。
+- **Lifestyle 圖偶爾仍 stock photo 感**：已 prompt 強化（HUMAN_DIRECTION + 6 個 brand-specific editorial archetypes）；2026-06-23 Level 3 改走 Nano Banana Pro，指令遵循更強、可吃更細的 casting 描述，stock 感應減輕（待實測）。若仍不夠 editorial，下一步在 archetype 加更具體 model casting 描述，或餵多張 casting 參考圖（Pro 支援最多 14 張）。
 - **創意尺度三段差異的結構性天花板**：第十四輪已把 prompt 改成具體變數 + 大膽模式鬆綁品牌鉗制，三段拉得開。但當「商品圖（尤其整房情境照）+ 場景描述 + 燒進去的文字」三者全被使用者鎖死時，三段能差的只剩相機/光線/彩度/staging。要差異更大需用「乾淨商品照」或讓場景留白給 AI。屬使用方式而非 bug，已記入 `docs/圖片產生器使用指南.md`。
 
 ### 已修問題

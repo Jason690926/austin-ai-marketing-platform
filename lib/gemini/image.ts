@@ -1,12 +1,17 @@
-// Gemini 3.1 Flash Image (Nano Banana 2) — REST API client
+// Gemini Nano Banana — REST API client
 // 用 raw fetch 而非 SDK,因為 @google/generative-ai v0.24.1 不支援圖片生成,
 // 而升級到 @google/genai 會牽動現有文案路徑。獨立檔案隔離,日後好替換。
 
 import type { AspectRatio } from '@/types'
 
-// 預設 Nano Banana 2(2026-02 GA):中文字渲染、指令遵循大幅優於舊版 2.5 Flash Image。
-// 可用 GEMINI_IMAGE_MODEL 覆寫(降回 gemini-2.5-flash-image 省成本,或升 gemini-3-pro-image-preview 求最高品質)。
-export const IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image-preview'
+// 預設 Nano Banana 2(GA):速度/成本佳,用於無燒字的 Level 1 底圖。
+// 可用 GEMINI_IMAGE_MODEL 覆寫(降回 gemini-2.5-flash-image 省成本)。
+export const IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image'
+
+// 燒字用途(Level 2 完整廣告 / Level 3 自主)走 Nano Banana Pro(Gemini 3 Pro Image,GA)。
+// Pro 的 thinking 模式會先規劃版面再渲染,中文字保真度與指令遵循遠勝 Flash,專治「燒進圖的中文字錯字/變形」。
+// 成本較高(~$0.134/張 vs Flash ~$0.045);想全程省成本可用 GEMINI_IMAGE_MODEL_PRO=gemini-3.1-flash-image 降回 Flash。
+export const IMAGE_MODEL_PRO = process.env.GEMINI_IMAGE_MODEL_PRO || 'gemini-3-pro-image'
 
 const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models'
 
@@ -27,9 +32,9 @@ const RETRYABLE_FINISH_REASONS = new Set([
 ])
 
 /**
- * 呼叫 Gemini 2.5 Flash Image 產一張圖。
+ * 呼叫 Gemini Nano Banana 產一張圖(模型由 opts.model 決定,預設 IMAGE_MODEL)。
  * - 文字 prompt 必填
- * - 可選 1-3 張參考圖(2.5 Flash 模型上限 3 張)
+ * - 可選參考圖(Flash 上限 3 張、Pro 上限 14 張)
  * - 可選比例(預設 1:1)
  * - 遇 MALFORMED_FUNCTION_CALL / OTHER 等 flaky finishReason 自動重試最多 2 次
  *
@@ -39,6 +44,7 @@ export async function generateImage(opts: {
   prompt: string
   aspectRatio?: AspectRatio
   referenceImages?: ReferenceImage[]
+  model?: string   // 覆寫模型(燒字用途傳 IMAGE_MODEL_PRO);省略則用 IMAGE_MODEL
 }): Promise<GenerateImageResult> {
   let lastError: Error | null = null
   for (let attempt = 1; attempt <= 3; attempt++) {
@@ -62,6 +68,7 @@ async function generateImageOnce(opts: {
   prompt: string
   aspectRatio?: AspectRatio
   referenceImages?: ReferenceImage[]
+  model?: string
 }): Promise<GenerateImageResult> {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) throw new Error('GEMINI_API_KEY is not set in .env.local')
@@ -81,7 +88,7 @@ async function generateImageOnce(opts: {
     },
   }
 
-  const url = `${API_BASE}/${IMAGE_MODEL}:generateContent`
+  const url = `${API_BASE}/${opts.model || IMAGE_MODEL}:generateContent`
   const res = await fetch(url, {
     method: 'POST',
     headers: {
