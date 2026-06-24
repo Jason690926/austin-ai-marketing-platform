@@ -114,7 +114,7 @@ npx tsc --noEmit     # 型別檢查（每次改完跑）
 
 ### 已知問題（下一步要處理）
 
-- **中文字渲染品質**：~~`gemini-2.5-flash-image` 中文字常錯字 / 變形~~ → ~~2026-06-08 升 Nano Banana 2~~ → **2026-06-23 燒字的 Level 2/3 已路由到 Nano Banana Pro (`gemini-3-pro-image`)**，thinking 模式先規劃版面再渲染，中文字保真度最高。若極長字串仍偶有瑕疵，終極解法仍是「AI 留位 + 後端字體渲染器疊字」混合方案。
+- **中文字渲染品質**：~~`gemini-2.5-flash-image` 中文字常錯字 / 變形~~ → ~~2026-06-08 升 Nano Banana 2~~ → **2026-06-23 燒字的 Level 2/3 已路由到 Nano Banana Pro (`gemini-3-pro-image`)**，thinking 模式先規劃版面再渲染。**2026-06-24 實測 POC（後端疊字 vs Pro 直接燒字，含「謐/鬱/曦/榫卯/蠶/鑲嵌/櫸」極端罕字 + 極長句 + 5 賣點密集排版壓力測試）結論：Pro 渲染能力已非常強，連極端罕字長句都 ~95-100% 正確，「偶有瑕疵」基本是 Flash 時代殘留、Pro 上已大幅突破**。「AI 留位 + 後端字體疊字」混合方案經 POC 技術驗證可行（`@napi-rs/canvas` 載繁中字體 + `sharp` composite，文字 **100% 確定正確、任意長度/罕字不崩**），但其價值已從「修 Pro 錯字」轉為「**確定性 / 像素級可控 / 合規零風險 / 成本（底圖可走便宜 Flash）**」；代價是版面較模板化（字是平面層、藝術融合度弱於 Pro 把字融進場景）+ 需維護排版引擎與 OFL 字體授權。**評估後暫不整合（Pro 直接燒字已夠好），結論備查，需要 100% 精準/品牌一致/量產 banner 時再啟用**。POC 另發現 **Pro 會自作主張加未提供的文字（壓測時擅自加 AUSTIN 字樣）→ 合規地雷**，這是混合方案「只畫你給的字」的另一優勢。詳見記憶 `project_text_overlay_poc`。
 - **Lifestyle 圖偶爾仍 stock photo 感**：已 prompt 強化（HUMAN_DIRECTION + 6 個 brand-specific editorial archetypes）；2026-06-23 Level 3 改走 Nano Banana Pro，指令遵循更強、可吃更細的 casting 描述，stock 感應減輕（待實測）。若仍不夠 editorial，下一步在 archetype 加更具體 model casting 描述，或餵多張 casting 參考圖（Pro 支援最多 14 張）。
 - **創意尺度三段差異的結構性天花板**：第十四輪已把 prompt 改成具體變數 + 大膽模式鬆綁品牌鉗制，三段拉得開。但當「商品圖（尤其整房情境照）+ 場景描述 + 燒進去的文字」三者全被使用者鎖死時，三段能差的只剩相機/光線/彩度/staging。要差異更大需用「乾淨商品照」或讓場景留白給 AI。屬使用方式而非 bug，已記入 `docs/圖片產生器使用指南.md`。
 
