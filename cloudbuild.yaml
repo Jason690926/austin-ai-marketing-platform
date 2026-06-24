@@ -1,0 +1,30 @@
+# Cloud Build：build 容器 + push 到 Artifact Registry。
+# 用法：
+#   gcloud builds submit --config cloudbuild.yaml \
+#     --substitutions=_IMAGE=asia-east1-docker.pkg.dev/PROJECT_ID/austin-marketing/app:latest,_SUPABASE_URL=https://xxx.supabase.co,_SUPABASE_ANON_KEY=eyJ...
+#
+# 注意：_SUPABASE_URL / _SUPABASE_ANON_KEY 是 NEXT_PUBLIC_* 值,必須在 build 時傳入(編進前端 bundle)。
+# anon key 是公開值(本來就會出現在瀏覽器),放這裡沒有安全問題。其餘機密(service_role / Gemini / Meta)
+# 不在 build 階段,改在 Cloud Run runtime 用 --set-secrets 注入。
+
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --build-arg=NEXT_PUBLIC_SUPABASE_URL=${_SUPABASE_URL}
+      - --build-arg=NEXT_PUBLIC_SUPABASE_ANON_KEY=${_SUPABASE_ANON_KEY}
+      - -t=${_IMAGE}
+      - .
+  - name: gcr.io/cloud-builders/docker
+    args: [push, '${_IMAGE}']
+
+images:
+  - '${_IMAGE}'
+
+substitutions:
+  _IMAGE: 'asia-east1-docker.pkg.dev/PROJECT_ID/austin-marketing/app:latest'
+  _SUPABASE_URL: ''
+  _SUPABASE_ANON_KEY: ''
+
+options:
+  logging: CLOUD_LOGGING_ONLY

@@ -1,0 +1,26 @@
+# 不要打進 image 的東西
+node_modules
+.next
+.git
+.gitignore
+
+# 金鑰絕不進 image(由 Cloud Run env / Secret Manager 注入)
+.env
+.env.*
+.env*.local
+
+# 開發/文件/測試,runtime 用不到
+*.md
+docs
+supabase
+vitest.config.ts
+**/*.test.ts
+**/*.test.tsx
+tsconfig.tsbuildinfo
+
+# 雜項
+.vscode
+.idea
+npm-debug.log*
+Dockerfile
+.dockerignore
