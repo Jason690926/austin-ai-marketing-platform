@@ -51,6 +51,7 @@ export function PublishView({
   const [selectedPageIds, setSelectedPageIds] = useState<string[]>(pages.map(p => p.pageId))
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [loading, setLoading] = useState(false)
@@ -64,11 +65,14 @@ export function PublishView({
     if (a?.copy_text) setCopyText(a.copy_text)
   }
 
-  function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
+  // 共用:點擊選檔與拖曳放入都走這條
+  function acceptImageFile(file: File | null | undefined) {
     if (!file) return
     setImageFile(file)
     setImagePreview(URL.createObjectURL(file))
+  }
+  function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    acceptImageFile(e.target.files?.[0])
   }
 
   function clearImage() {
@@ -162,10 +166,15 @@ export function PublishView({
         ) : (
           <div
             onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-3 border-2 border-dashed border-border rounded-lg px-5 py-4 cursor-pointer hover:border-foreground transition-colors text-muted-foreground">
+            onDragOver={e => { e.preventDefault(); setIsDragging(true) }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={e => { e.preventDefault(); setIsDragging(false); acceptImageFile(e.dataTransfer.files?.[0]) }}
+            className={`flex items-center gap-3 border-2 border-dashed rounded-lg px-5 py-4 cursor-pointer transition-colors ${
+              isDragging ? 'border-foreground text-foreground bg-muted/50' : 'border-border text-muted-foreground hover:border-foreground'
+            }`}>
             <ImagePlus size={20} />
             <div>
-              <p className="text-sm">點擊上傳圖片</p>
+              <p className="text-sm">{isDragging ? '放開以上傳圖片' : '點擊或拖曳上傳圖片'}</p>
               <p className="text-xs mt-0.5">JPG、PNG、WEBP</p>
             </div>
           </div>

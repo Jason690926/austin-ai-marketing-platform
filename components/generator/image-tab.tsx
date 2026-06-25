@@ -92,6 +92,9 @@ export function ImageTab() {
   const [referenceFile, setReferenceFile] = useState<File | null>(null)
   const [referencePreview, setReferencePreview] = useState<string | null>(null)
 
+  // 拖曳上傳高亮:目前被拖到哪個上傳區
+  const [dragTarget, setDragTarget] = useState<'product' | 'reference' | null>(null)
+
   // Level 2 ad fields
   const [adTitle,       setAdTitle]       = useState('')
   const [adSubtitle,    setAdSubtitle]    = useState('')
@@ -142,8 +145,8 @@ export function ImageTab() {
     return null
   }
 
-  function handleProductUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
+  // 共用：點擊選檔與拖曳放入都走這條（驗證 → 設檔 → 產生預覽）
+  function acceptProductFile(file: File | null | undefined) {
     if (!file) return
     const err = validateImageFile(file)
     if (err) { setTopError(err); return }
@@ -152,6 +155,9 @@ export function ImageTab() {
     if (productPreview) URL.revokeObjectURL(productPreview)
     setProductPreview(URL.createObjectURL(file))
   }
+  function handleProductUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    acceptProductFile(e.target.files?.[0])
+  }
   function clearProduct() {
     setProductFile(null)
     if (productPreview) URL.revokeObjectURL(productPreview)
@@ -159,8 +165,7 @@ export function ImageTab() {
     if (productInputRef.current) productInputRef.current.value = ''
   }
 
-  function handleReferenceUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
+  function acceptReferenceFile(file: File | null | undefined) {
     if (!file) return
     const err = validateImageFile(file)
     if (err) { setTopError(err); return }
@@ -168,6 +173,20 @@ export function ImageTab() {
     setReferenceFile(file)
     if (referencePreview) URL.revokeObjectURL(referencePreview)
     setReferencePreview(URL.createObjectURL(file))
+  }
+  function handleReferenceUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    acceptReferenceFile(e.target.files?.[0])
+  }
+
+  // 拖曳上傳：共用的 dragover/drop 行為（target 控制高亮）
+  function onDropFile(e: React.DragEvent, accept: (f: File | null | undefined) => void) {
+    e.preventDefault()
+    setDragTarget(null)
+    accept(e.dataTransfer.files?.[0])
+  }
+  function onDragOver(e: React.DragEvent, target: 'product' | 'reference') {
+    e.preventDefault()
+    setDragTarget(target)
   }
   function clearReference() {
     setReferenceFile(null)
@@ -327,10 +346,17 @@ export function ImageTab() {
           <button
             type="button"
             onClick={() => productInputRef.current?.click()}
-            className="w-full border-2 border-dashed border-border rounded-lg p-6 text-center text-muted-foreground text-sm hover:border-foreground hover:text-foreground transition-colors flex flex-col items-center gap-1.5"
+            onDragOver={e => onDragOver(e, 'product')}
+            onDragLeave={() => setDragTarget(null)}
+            onDrop={e => onDropFile(e, acceptProductFile)}
+            className={`w-full border-2 border-dashed rounded-lg p-6 text-center text-sm transition-colors flex flex-col items-center gap-1.5 ${
+              dragTarget === 'product'
+                ? 'border-foreground text-foreground bg-muted/50'
+                : 'border-border text-muted-foreground hover:border-foreground hover:text-foreground'
+            }`}
           >
             <Upload size={18} />
-            <span>點擊上傳商品照</span>
+            <span>{dragTarget === 'product' ? '放開以上傳商品照' : '點擊或拖曳上傳商品照'}</span>
             <span className="text-xs">JPG、PNG、WebP，最大 5MB</span>
           </button>
         ) : (
@@ -483,10 +509,17 @@ export function ImageTab() {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full border-2 border-dashed border-border rounded-lg p-10 text-center text-muted-foreground text-sm hover:border-foreground hover:text-foreground transition-colors flex flex-col items-center gap-1.5"
+                onDragOver={e => onDragOver(e, 'reference')}
+                onDragLeave={() => setDragTarget(null)}
+                onDrop={e => onDropFile(e, acceptReferenceFile)}
+                className={`w-full border-2 border-dashed rounded-lg p-10 text-center text-sm transition-colors flex flex-col items-center gap-1.5 ${
+                  dragTarget === 'reference'
+                    ? 'border-foreground text-foreground bg-muted/50'
+                    : 'border-border text-muted-foreground hover:border-foreground hover:text-foreground'
+                }`}
               >
                 <Upload size={20} />
-                <span>點擊上傳圖片</span>
+                <span>{dragTarget === 'reference' ? '放開以上傳圖片' : '點擊或拖曳上傳圖片'}</span>
                 <span className="text-xs">JPG、PNG、WebP，最大 5MB</span>
               </button>
             ) : (
