@@ -3,7 +3,7 @@ name: Deploy Austin AI Platform to Cloud Run
 on:
   push:
     branches:
-      - main # 當代碼推送到主分支 (main) 時，會自動觸發布署流程
+      - master # 本 repo 主分支為 master(非 main)。push 到 master 時自動觸發部署。
 
 jobs:
   deploy:
