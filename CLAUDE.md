@@ -4,7 +4,9 @@
 
 ## 專案是什麼
 
-**austin-ai-marketing-platform** — 內部行銷工具，幫各地經銷商統一管理 Facebook Page 發文，確保品牌一致性。Next.js 14 + shadcn/ui + Supabase + Gemini。
+**austin-ai-marketing-platform** — 公司內部**多功能 AI 行銷工具**，主要給**行銷企劃同仁**使用：AI 自動產生文案 + AI 自動產生行銷圖片；自動發文到 Facebook Page（統一管理各地經銷商、確保品牌一致性）為其中一項功能。Next.js 14 + shadcn/ui + Supabase + Gemini。
+
+⚠️ **定位（2026-06-25 重整）**：這不是「純發文工具」，而是行銷企劃日常用的產文/產圖平台。**上線分兩階段**：第一階段先讓內部同仁用「產文 + 產圖」（部署只需 Supabase + Gemini 金鑰即可上線）；第二階段再開放「自動發文」（補 Meta 金鑰 + #4 多經銷商 token）。部署面向見 `docs/IT部署操作手冊.md`（白話詳細版）+ `DEPLOY.md`（技術版）。
 
 ⚠️ 與 GitHub 上的 `Jason690926/ai-marketing-platform` 是**兩個不同專案**，只是早期共用 git 歷史（到 commit `418b7c4`）。不要把那邊的 commit 合併進來。origin 應指向 `austin-ai-marketing-platform`。
 
