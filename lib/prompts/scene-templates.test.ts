@@ -24,13 +24,17 @@ describe('CREATIVE_SCALE_DIRECTION — 三段視覺指令各自注入', () => {
     expect(p).toMatch(/never floating/i)
   })
 
-  it('surreal → 刻意的好超現實:單一概念 + 光線統一', () => {
+  it('surreal → editorial 超現實:概念/空間 + 光線統一,禁夜市海報語彙', () => {
     const p = level2Prompt('surreal')
-    expect(p).toMatch(/INTENTIONAL SURREALISM/)
-    expect(p).toMatch(/consistent lighting/i)
+    expect(p).toMatch(/EDITORIAL SURREALISM/)
+    expect(p).toMatch(/internally consistent light/i)
     expect(p).toMatch(/cohesive/i)
     // 必須明確排除「貼到不相干背景」的爛拼貼
-    expect(p).toMatch(/never as a product clumsily pasted/i)
+    expect(p).toMatch(/clumsily pasted/i)
+    // 新不變式:明文禁「放射爆裂光 / 光暈 / 撞色 / stock 擺拍」這些把超現實做成促銷海報的元素
+    expect(p).toMatch(/sunburst/i)
+    expect(p).toMatch(/halo/i)
+    expect(p).toMatch(/CONCEPT and SPACE/)
   })
 
   it('playful → 一個巧思 + 維持真實物理', () => {
@@ -101,7 +105,7 @@ describe('Level 1 / Level 3 也吃創意尺度', () => {
       level: 'level1',
       creativeScale: 'surreal',
     })
-    expect(p).toMatch(/INTENTIONAL SURREALISM/)
+    expect(p).toMatch(/EDITORIAL SURREALISM/)
     expect(p).not.toMatch(/RENDER THE FOLLOWING TEXT/)
   })
 
@@ -113,7 +117,35 @@ describe('Level 1 / Level 3 也吃創意尺度', () => {
       hasProductImage: true,
       creativeScale: 'surreal',
     })
-    expect(p).toMatch(/INTENTIONAL SURREALISM/)
+    expect(p).toMatch(/EDITORIAL SURREALISM/)
+  })
+})
+
+describe('朝「不鎖死」走 — 大膽模式把環境視為可重構,寫實維持只重生背景', () => {
+  function level3WithProduct(scale: CreativeScale) {
+    return buildLevel3Prompt({
+      brief: 'SNOOPY 涼被',
+      store: 'bedding',
+      variation: { kind: 'lifestyle', index: 1 },
+      hasProductImage: true,
+      creativeScale: scale,
+    })
+  }
+
+  it('realistic:商品圖只重生背景、不重構場景', () => {
+    const p = level3WithProduct('realistic')
+    expect(p).toMatch(/generate a new background.*AROUND the unchanged product/i)
+    expect(p).not.toMatch(/FULLY RE-STAGEABLE/)
+  })
+
+  it('playful / surreal:商品本身仍 pixel-faithful,但周遭環境可完全重構', () => {
+    for (const scale of ['playful', 'surreal'] as CreativeScale[]) {
+      const p = level3WithProduct(scale)
+      expect(p, scale).toMatch(/FULLY RE-STAGEABLE/)
+      expect(p, scale).toMatch(/ONLY the product itself is fixed/)
+      // 商品本身的鐵律不可鬆 — pixel-faithful 仍在
+      expect(p, scale).toMatch(/pixel-faithful/)
+    }
   })
 })
 
@@ -122,7 +154,7 @@ describe('大膽模式鬆綁品牌美學鎖定（讓三段真的拉開差異）'
     for (const scale of ['playful', 'surreal'] as CreativeScale[]) {
       const p = level2Prompt(scale)
       expect(p, scale).toMatch(/CREATIVE OVERRIDE/)
-      expect(p, scale).toMatch(/Disregard any earlier instruction to stay muted/i)
+      expect(p, scale).toMatch(/Disregard any earlier instruction to stay strictly muted/i)
     }
   })
 

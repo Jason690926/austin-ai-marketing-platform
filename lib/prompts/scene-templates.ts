@@ -27,17 +27,17 @@ const CREATIVE_SCALE_DIRECTION: Record<CreativeScale, string> = {
   playful:
     'CREATIVE SCALE = PLAYFUL CRAFT (clearly elevated beyond a plain shot). Keep believable physics, real contact shadows and unified lighting, BUT this image MUST be visibly more designed than a normal product photo — introduce at least ONE bold, concrete twist: a dynamic camera angle (notably low or high, or a slight dutch tilt), one exaggerated prop or playful scale shift, a vivid accent color, or a graphic stylised backdrop. Saturated accent color is allowed. Characterful, art-directed and cohesive — never a plain catalog shot, never a random collage.',
   surreal:
-    'CREATIVE SCALE = INTENTIONAL SURREALISM (must look OBVIOUSLY different from a realistic shot). Build a bold, dreamlike, conceptually surreal hero image: use a dramatic NON-eye-level camera (worm\'s-eye, bird\'s-eye, or a strong dutch tilt), theatrical or colored cinematic lighting, deliberate large scale shifts, and an imaginative or impossible environment / staging. Rich saturated, striking color is welcome and encouraged. The product itself stays unchanged, but stage it theatrically (it may float, tower, or sit somewhere impossible). CRITICAL: it must still be ONE cohesive image with a single clear concept and internally consistent lighting and shadows across every element — the surreal placement is deliberate art direction, so lighting, shadow, scale and perspective stay unified and intentional. It must read as a crafted surreal artwork — never as a product clumsily pasted onto an unrelated stock background.',
+    'CREATIVE SCALE = EDITORIAL SURREALISM (high-end, gallery-grade — must look OBVIOUSLY different from a plain realistic shot, but NEVER like a cheap promotional poster or night-market flyer). Drive the surreal feeling through CONCEPT and SPACE, not through cranked saturation: commit to ONE strong surreal idea (an impossible architectural space, a dreamlike scale shift, a poetic visual metaphor, gravity or perspective gently broken), shot with a dramatic NON-eye-level camera (worm\'s-eye, bird\'s-eye, or a deliberate dutch tilt) and UNIFIED cinematic lighting — one clear key light with real, consistent shadows and falloff across every element. Color: a controlled, intentional cinematic palette (a confident limited scheme — duotone, deep moody tones, or a single bold hue against neutrals); rich color is allowed ONLY as deliberate art direction, never garish. The product stays the believable hero, theatrically staged (it may float, tower, or sit somewhere impossible) but always grounded by consistent light and shadow. CRITICAL: it must read as ONE cohesive, crafted artwork with internally consistent light, shadow, scale and perspective — the surrealism is deliberate, quiet and confident, not loud. STRICTLY FORBIDDEN (these instantly cheapen it into a flyer): radial / sunburst / starburst light rays; glowing halo or aura behind the product; lens-flare bursts; clashing high-saturation carnival color combos (e.g. an orange-vs-teal poster clash); and generic stock "relaxing hands-behind-head smiling at camera" model poses. It must never look like a product clumsily pasted onto an unrelated stock background.',
 }
 
 // playful/surreal 用:主動鬆綁品牌 aesthetic anchor 的「muted/quiet/never-exuberant」鉗制,
 // 否則安靜低彩度的品牌鐵律會把大膽模式拉回跟寫實一樣。仍保留「不可廉價」的底線。
 const BOLD_SCALE_AESTHETIC_OVERRIDE =
-  'CREATIVE OVERRIDE (this image uses a BOLD creative scale): you may deliberately depart from the muted, quiet, restrained brand palette and mood described above. Vivid saturated color, dramatic theatrical or colored lighting, exuberant dynamic composition, and surreal scale/staging are ENCOURAGED. Disregard any earlier instruction to stay muted, quiet, low-saturation, never-exuberant or never-busy. (Still avoid genuinely CHEAP execution: no Canva/PowerPoint template look, no clip-art or sticker graphics, no amateur graphic design, no phone-camera HDR.)'
+  'CREATIVE OVERRIDE (this image uses a BOLD creative scale): you may deliberately depart from the muted, quiet, restrained brand palette and mood described above — a more dynamic, dramatic, art-directed composition is encouraged. Use a CONFIDENT, INTENTIONAL color and lighting scheme (a controlled limited palette + dramatic directional or colored cinematic light); striking color is welcome only as deliberate art direction, never as indiscriminate over-saturation. Disregard any earlier instruction to stay strictly muted, quiet or never-exuberant. (Still avoid CHEAP execution: no Canva/PowerPoint template look, no clip-art or sticker graphics, no amateur graphic design, no phone-camera HDR, no radial/sunburst glow behind the product, no garish clashing carnival saturation.)'
 
 // 大膽模式用的較輕 quality failsafe:保留「不可廉價」,但放掉「禁高彩度/戲劇性」這些壓制大膽的條款。
 const QUALITY_FAILSAFE_BOLD =
-  'Quality failsafe (bold creative scale) — these still look cheap and remain forbidden: Canva or PowerPoint or Word template aesthetic; clip-art, generic icons, sticker graphics; amateur templated advertising-poster layout; mass-market IKEA furniture; phone-camera HDR or accidental flat overhead lighting; toothy fake stock-photo smiles. Saturated color, dramatic/colored/theatrical lighting, bold scale and surreal staging are ALLOWED and encouraged at this scale.'
+  'Quality failsafe (bold creative scale) — these still look cheap and remain forbidden: Canva or PowerPoint or Word template aesthetic; clip-art, generic icons, sticker graphics; amateur templated advertising-poster layout; radial / sunburst / starburst light rays or a glowing halo/aura behind the product; garish clashing carnival color (e.g. an orange-vs-teal poster clash) and indiscriminate over-saturation; mass-market IKEA furniture; phone-camera HDR or accidental flat overhead lighting; toothy fake stock-photo smiles and generic "relaxing hands-behind-head" model poses. Dramatic directional/colored/theatrical lighting, a confident CONTROLLED color palette, bold scale and conceptual surreal staging ARE encouraged at this scale.'
 
 // 文字紅線 — 跨所有創意尺度恆禁 AI 自生「事實型文字」(合規)。playful/surreal 放寬的只是「非宣稱氛圍字」。
 const TEXT_FACT_REDLINE =
@@ -56,6 +56,28 @@ function buildTextLibertyRules(scale: CreativeScale): string[] {
     '- You MAY add a small amount of non-claim mood/atmosphere wording or decorative typographic accents that fit the creative concept (e.g. a short evocative phrase, a season word), in addition to the provided text — keep it tasteful and sparse, never cluttered.',
     `- ${TEXT_FACT_REDLINE}`,
   ]
+}
+
+// 商品圖指令 — 依創意尺度決定「環境鎖定程度」。
+// realistic:商品本身不變 + 周遭環境照舊整合(只重生缺的背景)。
+// bold(playful/surreal):商品本身仍 pixel-faithful,但若參考圖是整房/佈景,把「周遭環境/房間/場景」
+//   視為可完全重構的佈景 → 解掉「整房情境照鎖死構圖」的天花板,讓超現實有發揮空間。
+function buildProductImageInstruction(scale: CreativeScale, imageRoleNote: string): string {
+  const lines = [
+    `CRITICAL PRODUCT INSTRUCTION: ${imageRoleNote}`,
+    'Keep THE PRODUCT ITSELF UNCHANGED — preserve the sellable item\'s design, materials, color, pattern, fabric texture, branding text/logo, silhouette and proportions EXACTLY as shown, pixel-faithful to the original product. Do NOT redesign, recolor, restyle or substitute the product.',
+  ]
+  if (scale === 'realistic') {
+    lines.push(
+      'Your job is ONLY to generate a new background, environment, lighting and atmosphere AROUND the unchanged product, integrating it naturally into the scene described below. Treat this like compositing the original product onto a freshly painted scene — the product is the constant, the scene is the variable.',
+    )
+  } else {
+    // bold:鬆綁環境鎖定
+    lines.push(
+      'IMPORTANT — ONLY the product itself is fixed. If the reference shows a full room or a staged scene around the product, treat that surrounding environment, room, setting and background as FULLY RE-STAGEABLE: you are free to replace it entirely with a new, imaginative, conceptually surreal space per the creative direction below. Reinvent the world around the product as boldly as the creative scale demands; keep only the product faithful.',
+    )
+  }
+  return lines.join('\n')
 }
 
 function buildAestheticDirection(store: AssetStore, includeHumans: boolean, scale: CreativeScale = 'realistic'): string {
@@ -84,7 +106,7 @@ const LEVEL_2_NEGATIVE_PROMPT = [
 // 仍保留「不可廉價」(Canva/clip-art/amateur)底線。
 const LEVEL_2_NEGATIVE_PROMPT_BOLD = [
   'No watermarks, no fake brand logos beyond what is explicitly listed in the text rendering block.',
-  'NO Canva-template look, NO PowerPoint slide design, NO amateur graphic design, NO clip-art, NO sticker graphics. (Saturated color and dramatic lighting are allowed at this creative scale.)',
+  'NO Canva-template look, NO PowerPoint slide design, NO amateur graphic design, NO clip-art, NO sticker graphics, NO radial/sunburst/starburst light rays, NO glowing halo or aura behind the product, NO garish clashing carnival color. (Deliberate, controlled saturated color and dramatic cinematic lighting are allowed at this creative scale.)',
 ].join(' ')
 
 // 依創意尺度挑 Level 2/3 的 negative prompt。
@@ -141,9 +163,9 @@ export const SCENE_TEMPLATES: SceneTemplate[] = [
   },
   {
     id: 'studio_product',
-    name: '棚拍商品圖',
-    description: '純白背景，專業電商主圖用',
-    promptBody: `Professional studio product photography of the ${PRODUCT_PLACEHOLDER}. Pure white or very light gray seamless background. Even diffused soft-box lighting from both sides, no harsh shadows. Fabric texture and quilting detail clearly visible. Front-facing or slight 3/4 angle. Clean, clinical, e-commerce ready. Real photography feel.`,
+    name: 'AI 智選場景',
+    description: 'AI 評估商品特色，自動選最適背景／場景',
+    promptBody: `Act as an expert commercial and editorial product photographer and art director. First STUDY the ${PRODUCT_PLACEHOLDER} carefully — assess its category, material, fabric texture, color palette, pattern, any licensed character or motif, and the mood and lifestyle it evokes — then DESIGN, on your own judgement, the single most flattering setting for THIS specific product. Decide the background, surface, supporting props, styling and lighting that best showcase the product's character and selling points: this may be a clean studio backdrop, a styled tabletop, a lifestyle interior vignette, or an atmospheric art-directed set — choose whatever genuinely suits this product best, and do NOT default to a plain white seamless background unless that truly flatters this particular product most. Keep the product as the clear hero, sharply rendered with fabric texture and fine detail visible. The result must feel cohesive, intentional and premium — real commercial photography, not CGI or a 3D render.`,
   },
 ]
 
@@ -266,15 +288,9 @@ export function buildLevel3Prompt(opts: {
   const parts: string[] = []
   const scale: CreativeScale = opts.creativeScale ?? 'realistic'
 
-  // 商品圖優先指令(若有)
+  // 商品圖優先指令(若有) — 依創意尺度決定環境鎖定程度
   if (opts.hasProductImage) {
-    parts.push(
-      [
-        'CRITICAL PRODUCT INSTRUCTION: The FIRST attached image is THE PRODUCT to use.',
-        'The product itself must remain UNCHANGED — preserve its design, materials, color, pattern, fabric texture, branding text/logo, silhouette, and proportions EXACTLY as shown. Do NOT redesign, recolor, or substitute the product.',
-        'Your job is to generate the scene/background/composition AROUND the unchanged product per the creative direction below.',
-      ].join('\n'),
-    )
+    parts.push(buildProductImageInstruction(scale, 'The FIRST attached image is THE PRODUCT to use.'))
   }
 
   // 創意尺度視覺指令(提前 inject,優先吸收)
@@ -388,18 +404,12 @@ export function buildPrompt({
   const parts: string[] = []
   const product = PRODUCT_BY_STORE[store]
 
-  // 若有商品圖,先給最高優先指令:必須照搬商品圖的商品(商品本身不變,只重生背景/氛圍)
+  // 若有商品圖,先給最高優先指令:商品本身不變;環境鎖定程度依創意尺度(寫實只重生背景、大膽可重構場景)
   if (hasProductImage) {
     const imageRoleNote = hasReferenceImage
       ? 'The FIRST attached image is THE PRODUCT to use. The SECOND attached image is a visual reference for style, composition, and atmosphere only — do not copy its product if any.'
       : 'The FIRST attached image is THE PRODUCT to use.'
-    parts.push(
-      [
-        `CRITICAL PRODUCT INSTRUCTION: ${imageRoleNote}`,
-        `The product itself must remain UNCHANGED — preserve its design, materials, color, pattern, fabric texture, branding text/logo, silhouette, and proportions EXACTLY as shown in the product image, pixel-faithful to the original product. Do NOT redesign, recolor, restyle, or substitute the product.`,
-        `Your job is ONLY to generate a new background, environment, lighting, and atmosphere AROUND the unchanged product, integrating it naturally into the scene described below. Treat this like compositing the original product onto a freshly painted scene — the product is the constant, the scene is the variable.`,
-      ].join('\n')
-    )
+    parts.push(buildProductImageInstruction(scale, imageRoleNote))
   }
 
   // 主場景描述(若有商品圖,把 generic product 描述換成「the product from the reference」)
