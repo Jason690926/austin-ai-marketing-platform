@@ -1,0 +1,53 @@
+name: Deploy Austin AI Platform to Cloud Run
+
+on:
+  push:
+    branches:
+      - main # 當代碼推送到主分支 (main) 時，會自動觸發布署流程
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: Configure Docker for Artifact Registry
+      run: |
+        gcloud auth configure-docker asia-east1-docker.pkg.dev --quiet
+
+    # 自動建立存放容器鏡像的倉庫 (如果不存在的話)
+    - name: Create Artifact Repository if not exists
+      run: |
+        gcloud artifacts repositories create austin-marketing \
+          --repository-format=docker \
+          --location=asia-east1 --quiet || true
+
+    # 呼叫 Cloud Build 進行打包（同時注入前端編譯所需的變數）
+    - name: Build and Push Container
+      run: |
+        gcloud builds submit --config cloudbuild.yaml \
+          --substitutions=_IMAGE=asia-east1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/austin-marketing/app:latest,_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }},_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+
+    # 正式部署到 Cloud Run，並自動綁定 GCP Secret Manager 內的安全金鑰
+    - name: Deploy to Cloud Run
+      run: |
+        gcloud run deploy austin-marketing \
+          --image asia-east1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/austin-marketing/app:latest \
+          --region asia-east1 \
+          --platform managed \
+          --allow-unauthenticated \
+          --memory 2Gi \
+          --cpu 2 \
+          --timeout 600 \
+          --max-instances 5 \
+          --min-instances 0 \
+          --set-secrets "SUPABASE_SERVICE_ROLE_KEY=SUPABASE_SERVICE_ROLE_KEY:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest"
