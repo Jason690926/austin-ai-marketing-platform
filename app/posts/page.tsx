@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { getCurrentUser } from '@/lib/auth/role'
 import { AppShell } from '@/components/layout/app-shell'
 import { Check, AlertTriangle, ExternalLink } from 'lucide-react'
 import type { Post } from '@/types'
@@ -16,9 +17,11 @@ function formatTime(iso: string): string {
 }
 
 export default async function PostsPage() {
+  const me = await getCurrentUser()
+  if (!me) redirect('/login')
+  if (me.role !== 'admin') redirect('/generator')
+
   const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
 
   async function logout() {
     'use server'
@@ -35,7 +38,7 @@ export default async function PostsPage() {
   const rows = (posts ?? []) as Post[]
 
   return (
-    <AppShell user={{ email: user.email! }} logoutAction={logout}>
+    <AppShell user={{ email: me.email }} isAdmin logoutAction={logout}>
       <div className="p-8 max-w-3xl">
         <h2 className="text-2xl font-bold mb-1">發文紀錄</h2>
         <p className="text-muted-foreground text-sm mb-8">

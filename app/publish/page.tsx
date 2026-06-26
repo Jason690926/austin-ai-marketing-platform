@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { getCurrentUser } from '@/lib/auth/role'
 import { AppShell } from '@/components/layout/app-shell'
 import { PublishView } from '@/components/publish/publish-view'
 import { getMetaPages, type MetaPagePublic } from '@/lib/meta/client'
@@ -10,9 +11,11 @@ export default async function PublishPage({
 }: {
   searchParams: { assetId?: string }
 }) {
+  const me = await getCurrentUser()
+  if (!me) redirect('/login')
+  if (me.role !== 'admin') redirect('/generator')
+
   const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
 
   async function logout() {
     'use server'
@@ -38,7 +41,7 @@ export default async function PublishPage({
     .order('created_at', { ascending: false })
 
   return (
-    <AppShell user={{ email: user.email! }} logoutAction={logout}>
+    <AppShell user={{ email: me.email }} isAdmin logoutAction={logout}>
       <div className="p-8 max-w-3xl">
         <h2 className="text-2xl font-bold mb-1">發布貼文</h2>
         <p className="text-muted-foreground text-sm mb-8">

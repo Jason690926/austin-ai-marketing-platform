@@ -69,7 +69,7 @@ const PURPOSES: { value: AssetPurpose; label: string; desc: string; group: 'ç¤¾ç
 
 const KEYWORDS_PURPOSES = new Set<AssetPurpose>(['ad', 'google_search_ad', 'pmax_ad', 'seo_article'])
 
-export function CopyTab() {
+export function CopyTab({ isAdmin = false }: { isAdmin?: boolean }) {
   const [store,        setStore]        = useState<AssetStore>('mattress')
   const [purpose,      setPurpose]      = useState<AssetPurpose>('post')
   const [campaigns,    setCampaigns]    = useState<string[]>([])
@@ -414,6 +414,7 @@ export function CopyTab() {
           copiedKey={copiedKey}
           onCopy={copyChunk}
           onTextChange={setResult}
+          isAdmin={isAdmin}
         />
       )}
     </div>
@@ -421,7 +422,7 @@ export function CopyTab() {
 }
 
 function ResultDisplay({
-  text, purpose, assetId, campaignLabel, structured, copiedKey, onCopy, onTextChange,
+  text, purpose, assetId, campaignLabel, structured, copiedKey, onCopy, onTextChange, isAdmin,
 }: {
   text: string
   purpose: AssetPurpose
@@ -431,6 +432,7 @@ function ResultDisplay({
   copiedKey: string | null
   onCopy: (key: string, text: string) => void
   onTextChange: (next: string) => void
+  isAdmin: boolean
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(text)
@@ -440,7 +442,7 @@ function ResultDisplay({
   const sections = structured ? parseSections(text) : []
   const useStructured = structured && sections.length > 0
   const showSheetPush = purpose === 'ad'
-  const showPublish = (purpose === 'fb_post' || purpose === 'post') && !!assetId
+  const showPublish = isAdmin && (purpose === 'fb_post' || purpose === 'post') && !!assetId
 
   function startEdit() {
     setDraft(text)

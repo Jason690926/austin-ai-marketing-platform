@@ -2,9 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Sparkles, Images, LogOut, Image, FileText, Send, History } from 'lucide-react'
+import { Sparkles, Images, LogOut, Image, FileText, Send, History, BarChart3 } from 'lucide-react'
 
-const NAV = [
+type NavItem =
+  | { label: string; icon: typeof Sparkles; href: string; adminOnly?: boolean }
+  | { label: string; icon: typeof Sparkles; children: { href: string; label: string; icon: typeof Sparkles }[]; adminOnly?: boolean }
+
+const NAV: NavItem[] = [
   {
     label: '素材產生器',
     icon: Sparkles,
@@ -21,21 +25,30 @@ const NAV = [
   {
     label: '自動發文',
     icon: Send,
+    adminOnly: true,
     children: [
       { href: '/publish', label: '發布貼文', icon: Send },
       { href: '/posts',   label: '發文紀錄', icon: History },
     ],
+  },
+  {
+    label: '管理者統計',
+    icon: BarChart3,
+    href: '/admin',
+    adminOnly: true,
   },
 ]
 
 interface AppShellProps {
   children: React.ReactNode
   user: { email: string }
+  isAdmin?: boolean
   logoutAction: () => Promise<void>
 }
 
-export function AppShell({ children, user, logoutAction }: AppShellProps) {
+export function AppShell({ children, user, isAdmin = false, logoutAction }: AppShellProps) {
   const pathname = usePathname()
+  const nav = NAV.filter(item => !item.adminOnly || isAdmin)
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
@@ -46,8 +59,8 @@ export function AppShell({ children, user, logoutAction }: AppShellProps) {
         </div>
 
         <nav className="flex-1 p-3 space-y-1">
-          {NAV.map((item) => {
-            if ('children' in item && item.children) {
+          {nav.map((item) => {
+            if ('children' in item) {
               const parentActive = item.children.some(c => pathname === c.href)
               return (
                 <div key={item.label}>

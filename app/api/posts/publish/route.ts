@@ -4,10 +4,19 @@ import { getMetaPages, publishPhotoPost, type MetaPageConfig, type PostImage } f
 import type { PublishPageResult, PublishStatus } from '@/types'
 
 export async function POST(request: Request) {
-  // 1. Auth
+  // 1. Auth — 須登入且為 admin(發文權限僅 admin,前端隱藏 + 後端再驗一次雙保險)
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: '未登入' }, { status: 401 })
+
+  const { data: profile } = await supabase
+    .from('users')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+  if (profile?.role !== 'admin') {
+    return NextResponse.json({ error: '權限不足:僅管理者可發布貼文' }, { status: 403 })
+  }
 
   // 2. 解析 multipart form
   let form: FormData
