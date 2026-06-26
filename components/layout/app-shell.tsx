@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Sparkles, Images, LogOut, Image, FileText, Send, History, BarChart3 } from 'lucide-react'
+import { Sparkles, Images, LogOut, Image, FileText, Send, History, BarChart3, Users } from 'lucide-react'
 
 type NavItem =
   | { label: string; icon: typeof Sparkles; href: string; adminOnly?: boolean }
@@ -32,10 +32,13 @@ const NAV: NavItem[] = [
     ],
   },
   {
-    label: '管理者統計',
+    label: '管理者',
     icon: BarChart3,
-    href: '/admin',
     adminOnly: true,
+    children: [
+      { href: '/admin',       label: '統計報表', icon: BarChart3 },
+      { href: '/admin/users', label: '人員管理', icon: Users },
+    ],
   },
 ]
 
