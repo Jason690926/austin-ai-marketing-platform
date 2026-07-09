@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { parseSections, isStructuredPurpose } from '@/lib/copy/parse-sections'
 import {
   CAMPAIGNS,
@@ -13,7 +13,8 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
-import { ImagePlus, X, Copy, Check, ChevronDown, ChevronUp, Sheet, ExternalLink, Send, Pencil } from 'lucide-react'
+import { X, Copy, Check, ChevronDown, ChevronUp, Sheet, ExternalLink, Send, Pencil } from 'lucide-react'
+import { ImageDropzone } from '@/components/image-dropzone'
 import { createClient } from '@/lib/supabase/client'
 import type { AssetStore, AssetPurpose, CtaType, ToneStyle, AudienceStrategy } from '@/types'
 
@@ -82,12 +83,13 @@ export function CopyTab({ isAdmin = false }: { isAdmin?: boolean }) {
   const [instructions, setInstructions] = useState('')
   const [imageFile,    setImageFile]    = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
-  const [isDragging,   setIsDragging]   = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [loading, setLoading] = useState(false)
   const [result,  setResult]  = useState<string | null>(null)
   const [resultAssetId, setResultAssetId] = useState<string | null>(null)
+  // 產生當下的 purpose / 檔期快照 — 結果區必須用這份渲染,
+  // 否則產完後切換用途,舊結果會套新用途的按鈕/分區(例如把貼文推進廣告 Sheet)
+  const [resultMeta, setResultMeta] = useState<{ purpose: AssetPurpose; campaignLabel: string } | null>(null)
   const [errorMsg, setErrorMsg] = useState('')
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
 
@@ -116,20 +118,18 @@ export function CopyTab({ isAdmin = false }: { isAdmin?: boolean }) {
     [sortedCampaigns, currentMonth]
   )
 
-  // 共用:點擊選檔與拖曳放入都走這條
-  function acceptImageFile(file: File | null | undefined) {
-    if (!file) return
+  // 驗證(型別/大小)由 ImageDropzone 統一處理,這裡只負責設檔 + 產生預覽
+  function acceptImageFile(file: File) {
+    setErrorMsg('')
     setImageFile(file)
+    if (imagePreview) URL.revokeObjectURL(imagePreview)
     setImagePreview(URL.createObjectURL(file))
-  }
-  function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    acceptImageFile(e.target.files?.[0])
   }
 
   function clearImage() {
     setImageFile(null)
+    if (imagePreview) URL.revokeObjectURL(imagePreview)
     setImagePreview(null)
-    if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   function toggleCampaign(id: string) {
@@ -150,6 +150,7 @@ export function CopyTab({ isAdmin = false }: { isAdmin?: boolean }) {
     setErrorMsg('')
     setResult(null)
     setResultAssetId(null)
+    setResultMeta(null)
     try {
       const payload: Record<string, unknown> = { store, purpose }
       if (campaigns.length > 0) payload.campaigns = campaigns
@@ -173,6 +174,13 @@ export function CopyTab({ isAdmin = false }: { isAdmin?: boolean }) {
       }
       setResult(data.asset?.copy_text ?? '')
       setResultAssetId(data.asset?.id ?? null)
+      setResultMeta({
+        purpose,
+        campaignLabel: campaigns
+          .map(id => CAMPAIGNS.find(c => c.id === id)?.label)
+          .filter((s): s is string => !!s)
+          .join('、'),
+      })
     } catch (e: any) {
       setErrorMsg(e?.message || '網路或未知錯誤')
     } finally {
@@ -182,9 +190,14 @@ export function CopyTab({ isAdmin = false }: { isAdmin?: boolean }) {
 
   async function copyChunk(key: string, text: string) {
     if (!text) return
-    await navigator.clipboard.writeText(text)
-    setCopiedKey(key)
-    setTimeout(() => setCopiedKey(null), 1500)
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopiedKey(key)
+      setTimeout(() => setCopiedKey(null), 1500)
+    } catch {
+      // clipboard API 在非 HTTPS(如區網 IP 開 dev)會拋錯,給提示而非默默沒反應
+      setErrorMsg('複製失敗:瀏覽器不允許存取剪貼簿,請手動選取文字複製')
+    }
   }
 
   const groups: ('社群' | '廣告' | '官網/SEO')[] = ['社群', '廣告', '官網/SEO']
@@ -250,22 +263,8 @@ export function CopyTab({ isAdmin = false }: { isAdmin?: boolean }) {
             <p className="text-xs text-muted-foreground mt-1.5">{imageFile?.name}</p>
           </div>
         ) : (
-          <div
-            onClick={() => fileInputRef.current?.click()}
-            onDragOver={e => { e.preventDefault(); setIsDragging(true) }}
-            onDragLeave={() => setIsDragging(false)}
-            onDrop={e => { e.preventDefault(); setIsDragging(false); acceptImageFile(e.dataTransfer.files?.[0]) }}
-            className={`flex items-center gap-3 border-2 border-dashed rounded-lg px-5 py-4 cursor-pointer transition-colors ${
-              isDragging ? 'border-foreground text-foreground bg-muted/50' : 'border-border text-muted-foreground hover:border-foreground'
-            }`}>
-            <ImagePlus size={20} />
-            <div>
-              <p className="text-sm">{isDragging ? '放開以上傳圖片' : '點擊或拖曳上傳圖片'}</p>
-              <p className="text-xs mt-0.5">JPG、PNG、WEBP,最大 10MB</p>
-            </div>
-          </div>
+          <ImageDropzone onFile={acceptImageFile} onError={setErrorMsg} maxMB={10} />
         )}
-        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
       </div>
 
       {/* Purpose grouped */}
@@ -392,7 +391,7 @@ export function CopyTab({ isAdmin = false }: { isAdmin?: boolean }) {
       </div>
 
       <Button className="w-full" size="lg" onClick={handleGenerate} disabled={loading}>
-        {loading ? '產生中…(Gemini 2.5 Flash)' : '產生文案'}
+        {loading ? '產生中…(約需 10-30 秒)' : '產生文案'}
       </Button>
 
       {errorMsg && (
@@ -401,16 +400,13 @@ export function CopyTab({ isAdmin = false }: { isAdmin?: boolean }) {
         </p>
       )}
 
-      {result && (
+      {result && resultMeta && (
         <ResultDisplay
           text={result}
-          purpose={purpose}
+          purpose={resultMeta.purpose}
           assetId={resultAssetId}
-          campaignLabel={campaigns
-            .map(id => CAMPAIGNS.find(c => c.id === id)?.label)
-            .filter((s): s is string => !!s)
-            .join('、')}
-          structured={isStructuredPurpose(purpose)}
+          campaignLabel={resultMeta.campaignLabel}
+          structured={isStructuredPurpose(resultMeta.purpose)}
           copiedKey={copiedKey}
           onCopy={copyChunk}
           onTextChange={setResult}

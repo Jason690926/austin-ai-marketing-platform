@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getMetaPages, publishPhotoPost, type MetaPageConfig, type PostImage } from '@/lib/meta/client'
+import { getMetaPages, publishPhotoPost, MetaPublishError, type MetaPageConfig, type PostImage } from '@/lib/meta/client'
 import type { PublishPageResult, PublishStatus } from '@/types'
 
 export async function POST(request: Request) {
@@ -35,6 +35,9 @@ export async function POST(request: Request) {
   if (!(imageFile instanceof File) || imageFile.size === 0) {
     return NextResponse.json({ error: '缺少圖片' }, { status: 400 })
   }
+  if (imageFile.size > 10 * 1024 * 1024) {
+    return NextResponse.json({ error: '圖片超過 10MB 上限' }, { status: 400 })
+  }
 
   let pageIds: string[]
   try {
@@ -66,8 +69,10 @@ export async function POST(request: Request) {
     mimeType: imageFile.type || 'image/jpeg',
   }
 
-  // 5. 發布 — 逐家發、成功略過失敗;全部跑完後失敗清單重試第 2 次
+  // 5. 發布 — 逐家發、成功略過失敗;全部跑完後「可重試的」失敗清單重試第 2 次。
+  // 不可重試 = token/權限類(重發必再失敗)或網路逾時(貼文可能已送出,自動重發會重複貼文)。
   const results = new Map<string, PublishPageResult>()
+  const retryableFailures = new Set<string>()
 
   async function attempt(page: MetaPageConfig, attemptNo: number) {
     try {
@@ -80,6 +85,7 @@ export async function POST(request: Request) {
         error: null,
         attempts: attemptNo,
       })
+      retryableFailures.delete(page.pageId)
     } catch (e: any) {
       results.set(page.pageId, {
         page_id: page.pageId,
@@ -89,6 +95,11 @@ export async function POST(request: Request) {
         error: e?.message || '未知錯誤',
         attempts: attemptNo,
       })
+      if (e instanceof MetaPublishError && e.retryable) {
+        retryableFailures.add(page.pageId)
+      } else {
+        retryableFailures.delete(page.pageId)
+      }
     }
   }
 
@@ -96,10 +107,13 @@ export async function POST(request: Request) {
   for (const page of selectedPages) {
     await attempt(page, 1)
   }
-  // Round 2 — 只重試第 1 輪失敗的
-  const retryPages = selectedPages.filter(p => results.get(p.pageId)?.status === 'failed')
-  for (const page of retryPages) {
-    await attempt(page, 2)
+  // Round 2 — 只重試可重試的失敗,先等 3 秒讓 rate limit / 暫時性故障窗口過去
+  const retryPages = selectedPages.filter(p => retryableFailures.has(p.pageId))
+  if (retryPages.length > 0) {
+    await new Promise(r => setTimeout(r, 3000))
+    for (const page of retryPages) {
+      await attempt(page, 2)
+    }
   }
 
   const ordered: PublishPageResult[] = selectedPages.map(p => results.get(p.pageId)!)

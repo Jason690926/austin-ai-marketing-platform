@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getSheetsClient, getMetaAdConfig, colIndexToLetter } from '@/lib/sheets/client'
+import { parseSections as parseCopySections } from '@/lib/copy/parse-sections'
 
 interface PushBody {
   copyText: string
@@ -37,19 +38,10 @@ const FRAME_GAP = 1   // 兩個 frame 中間留 1 欄空白做分隔
 const MAX_FRAMES = 50 // 安全上限
 const SCAN_ROW_LIMIT = 200
 
+// 解析共用 lib/copy/parse-sections(寬鬆版:標頭可與內容同行,是舊嚴格版的超集),
+// 只在這裡轉成本 route 慣用的 Map 介面。兩份同名不同行為的 parseSections 已收攏。
 function parseSections(text: string): Map<string, string> {
-  const headerRe = /^\s*【([^】\n]+)】\s*$/gm
-  const matches = Array.from(text.matchAll(headerRe))
-  const result = new Map<string, string>()
-  for (let i = 0; i < matches.length; i++) {
-    const m = matches[i]
-    const title = m[1].trim()
-    const start = (m.index ?? 0) + m[0].length
-    const end = i + 1 < matches.length ? (matches[i + 1].index ?? text.length) : text.length
-    const content = text.slice(start, end).trim()
-    if (title) result.set(title, content)
-  }
-  return result
+  return new Map(parseCopySections(text).map(s => [s.title, s.content]))
 }
 
 function clip(s: string | undefined, max: number): string {
@@ -119,31 +111,6 @@ async function getSheetMeta(
   const maxRow = Math.max(...frame0Labels.map(r => r.row), 1)
 
   return { sheetTabId, frameWidth, maxRow, columnCount, rowCount, frame0Labels }
-}
-
-/** 若 sheet 目前欄數不夠裝下目標 frame,擴充到足夠 */
-async function ensureEnoughColumns(
-  sheets: ReturnType<typeof getSheetsClient>,
-  sheetId: string,
-  sheetTabId: number,
-  currentColumnCount: number,
-  requiredEndCol: number,  // exclusive,即 destination.endColumnIndex
-): Promise<number> {
-  if (requiredEndCol <= currentColumnCount) return currentColumnCount
-  const needed = requiredEndCol - currentColumnCount
-  await sheets.spreadsheets.batchUpdate({
-    spreadsheetId: sheetId,
-    requestBody: {
-      requests: [{
-        appendDimension: {
-          sheetId: sheetTabId,
-          dimension: 'COLUMNS',
-          length: needed,
-        },
-      }],
-    },
-  })
-  return currentColumnCount + needed
 }
 
 interface FrameInfo {

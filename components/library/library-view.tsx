@@ -4,20 +4,8 @@ import { useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { formatDate } from '@/lib/utils'
 import { Star, Copy, Check, Trash2, ChevronLeft } from 'lucide-react'
-import type { Asset, AssetType, AssetStore } from '@/types'
-
-const TYPE_LABEL: Record<AssetType, string> = { copy: '文案', image: '圖片' }
-const STORE_LABEL: Record<AssetStore, string> = { mattress: '席樂頓床墊', bedding: '奧斯汀寢飾' }
-const PURPOSE_LABEL: Record<string, string> = {
-  ad: 'Meta 廣告',
-  google_search_ad: 'Google 搜尋廣告 RSA',
-  pmax_ad: 'Google 多素材廣告',
-  post: 'IG 貼文',
-  fb_post: 'FB 貼文',
-  web_brand: '品牌故事',
-  web_product: '商品介紹',
-  seo_article: 'SEO / AEO / GEO',
-}
+import type { Asset, AssetType, AssetStore, AssetPurpose } from '@/types'
+import { TYPE_LABEL, STORE_LABEL, PURPOSE_LABEL } from '@/lib/constants'
 
 type TypeFilter = 'all' | AssetType
 type StoreFilter = 'all' | AssetStore
@@ -133,9 +121,14 @@ export function LibraryView({ initialAssets }: { initialAssets: Asset[] }) {
 
   async function copyText(a: Asset) {
     if (!a.copy_text) return
-    await navigator.clipboard.writeText(a.copy_text)
-    setCopiedId(a.id)
-    setTimeout(() => setCopiedId(null), 1500)
+    try {
+      await navigator.clipboard.writeText(a.copy_text)
+      setCopiedId(a.id)
+      setTimeout(() => setCopiedId(null), 1500)
+    } catch {
+      // clipboard API 在非 HTTPS(如區網 IP 開 dev)會拋錯,給提示而非默默沒反應
+      alert('複製失敗:瀏覽器不允許存取剪貼簿,請開啟該筆素材手動選取複製')
+    }
   }
 
   async function deleteAsset(a: Asset) {
@@ -225,7 +218,7 @@ export function LibraryView({ initialAssets }: { initialAssets: Asset[] }) {
                   {m.topPurposes.length > 0 && (
                     <InfoRow label="熱門">
                       {m.topPurposes.map(p => (
-                        <Pill key={p.purpose}>{PURPOSE_LABEL[p.purpose] ?? p.purpose} {p.count}</Pill>
+                        <Pill key={p.purpose}>{PURPOSE_LABEL[p.purpose as AssetPurpose] ?? p.purpose} {p.count}</Pill>
                       ))}
                     </InfoRow>
                   )}

@@ -31,12 +31,19 @@ const RETRYABLE_FINISH_REASONS = new Set([
   'OTHER',                    // Gemini 偶發 OTHER finishReason,常常重試就好
 ])
 
+// 可重試的 HTTP 錯誤:429 rate limit(多張並行最常見)、5xx 暫時性故障
+const RETRYABLE_HTTP_STATUS = /Gemini Image API (429|500|502|503)/
+
+// 單次呼叫上限:Pro thinking 模式單張可到 30-60 秒,設 120 秒防吊死
+const FETCH_TIMEOUT_MS = 120_000
+
 /**
  * 呼叫 Gemini Nano Banana 產一張圖(模型由 opts.model 決定,預設 IMAGE_MODEL)。
  * - 文字 prompt 必填
  * - 可選參考圖(Flash 上限 3 張、Pro 上限 14 張)
  * - 可選比例(預設 1:1)
- * - 遇 MALFORMED_FUNCTION_CALL / OTHER 等 flaky finishReason 自動重試最多 2 次
+ * - 最多嘗試 3 次:MALFORMED_FUNCTION_CALL / OTHER / 429 / 5xx / timeout 皆自動重試
+ *   (429 用較長退避,其餘指數退避)
  *
  * 失敗時 throw,error message 含 HTTP status + Google 回傳訊息,方便排查。
  */
@@ -54,11 +61,14 @@ export async function generateImage(opts: {
       const err = e as Error
       lastError = err
       const msg = String(err.message || err)
-      let isRetryable = false
+      const isRateLimited = msg.includes('Gemini Image API 429')
+      const isTimeout = err.name === 'TimeoutError' || msg.includes('timeout')
+      let isRetryable = isRateLimited || isTimeout || RETRYABLE_HTTP_STATUS.test(msg)
       RETRYABLE_FINISH_REASONS.forEach(r => { if (msg.includes(r)) isRetryable = true })
       if (!isRetryable || attempt === 3) throw err
-      // 簡單退避(指數):500ms / 2000ms
-      await new Promise(r => setTimeout(r, attempt * attempt * 500))
+      // 429 退避較長(4s/8s)讓 rate limit 窗口過去;其餘指數退避 500ms/2000ms
+      const delay = isRateLimited ? attempt * 4000 : attempt * attempt * 500
+      await new Promise(r => setTimeout(r, delay))
     }
   }
   throw lastError!
@@ -96,6 +106,7 @@ async function generateImageOnce(opts: {
       'x-goog-api-key': apiKey,
     },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   })
 
   if (!res.ok) {

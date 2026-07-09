@@ -26,6 +26,22 @@ function fmtUSD(n: number): string {
   return `$${n.toFixed(2)}`
 }
 
+// PostgREST 單次查詢預設上限 1000 列 — 不分頁的話超過 1000 筆後統計會「默默少算」。
+// 用 .range() 迴圈撈完;order by id 確保跨頁不重不漏。
+async function fetchAll<Row>(
+  buildQuery: () => any,
+): Promise<{ rows: Row[]; error: string | null }> {
+  const PAGE = 1000
+  const rows: Row[] = []
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await buildQuery().order('id').range(from, from + PAGE - 1)
+    if (error) return { rows, error: error.message }
+    rows.push(...((data ?? []) as Row[]))
+    if (!data || data.length < PAGE) break
+  }
+  return { rows, error: null }
+}
+
 export default async function AdminPage() {
   const me = await getCurrentUser()
   if (!me) redirect('/login')
@@ -41,16 +57,21 @@ export default async function AdminPage() {
   // service_role 繞過 RLS 抓全體(呼叫者已驗證為 admin)
   const admin = createAdminClient()
   const [usersRes, assetsRes, postsRes] = await Promise.all([
-    admin.from('users').select('id, email, name, role'),
-    admin.from('assets').select('user_id, type, image_level'),
-    admin.from('posts').select('user_id, status'),
+    fetchAll<{ id: string; email: string; name: string | null; role: string | null }>(
+      () => admin.from('users').select('id, email, name, role'),
+    ),
+    fetchAll<{ user_id: string | null; type: string; image_level: string | null; source: string }>(
+      () => admin.from('assets').select('user_id, type, image_level, source'),
+    ),
+    fetchAll<{ user_id: string | null; status: string }>(
+      () => admin.from('posts').select('user_id, status'),
+    ),
   ])
 
-  const loadError =
-    usersRes.error?.message || assetsRes.error?.message || postsRes.error?.message || null
+  const loadError = usersRes.error || assetsRes.error || postsRes.error || null
 
   const statMap = new Map<string, UserStat>()
-  for (const u of usersRes.data ?? []) {
+  for (const u of usersRes.rows) {
     statMap.set(u.id, {
       id: u.id,
       email: u.email,
@@ -75,10 +96,12 @@ export default async function AdminPage() {
     return s
   }
 
-  for (const a of assetsRes.data ?? []) {
+  for (const a of assetsRes.rows) {
     const s = ensure(a.user_id)
     if (!s) continue
     if (a.type === 'image') {
+      // 使用者上傳圖 / 無 level 標記的圖不是 AI 產圖,不計張數也不計費
+      if (a.source === 'user_uploaded' || !a.image_level) continue
       if (a.image_level === 'level2_complete') s.burnImages++
       else s.baseImages++
     } else {
@@ -86,7 +109,7 @@ export default async function AdminPage() {
     }
   }
 
-  for (const p of postsRes.data ?? []) {
+  for (const p of postsRes.rows) {
     const s = ensure(p.user_id)
     if (!s) continue
     if (p.status === 'success') s.posts++
@@ -195,6 +218,7 @@ export default async function AdminPage() {
         <p className="text-xs text-muted-foreground mt-4 leading-relaxed">
           ※ 花費為<strong>推估值</strong>（底圖 ${COST_BASE}/張、燒字圖走 Pro ${COST_PRO}/張，文案成本極低未計入），
           非帳單級精確；以 Google Cloud 帳單為準。「燒字圖」含 Level 2 完整廣告與 Level 3 AI 全權自主。
+          統計依素材庫現存素材計算，已刪除的素材不列入；使用者上傳的圖片不計費。
         </p>
       </div>
     </AppShell>

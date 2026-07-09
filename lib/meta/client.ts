@@ -37,9 +37,30 @@ export interface PostImage {
 }
 
 /**
+ * 發布失敗的分類錯誤。retryable 決定自動重試策略:
+ * - true:Meta 明確拒絕且屬暫時性(rate limit / 服務暫時異常),重發不會重複貼文
+ * - false:(a) token/權限類錯誤,重試必然再失敗;
+ *          (b) 網路逾時/中斷 — 貼文「可能已成功送達」,自動重發會造成重複貼文,只能人工確認
+ */
+export class MetaPublishError extends Error {
+  retryable: boolean
+  constructor(message: string, retryable: boolean) {
+    super(message)
+    this.name = 'MetaPublishError'
+    this.retryable = retryable
+  }
+}
+
+// Graph API 暫時性錯誤碼:1/2 未知或服務暫時異常、4/17/32 rate limit、341 應用層限流
+const TRANSIENT_META_ERROR_CODES = new Set([1, 2, 4, 17, 32, 341])
+
+const META_FETCH_TIMEOUT_MS = 60_000
+
+/**
  * 發布一則「圖片 + 文字」貼文到指定 Page。
  * 用 multipart 直接把圖片 binary 傳給 Graph API /{page-id}/photos,圖片不落地。
  * 成功回傳 Meta 的 post id(形如 {pageId}_{postId})。
+ * 失敗時 throw MetaPublishError(retryable 標記見上)。
  */
 export async function publishPhotoPost(
   page: MetaPageConfig,
@@ -57,10 +78,29 @@ export async function publishPhotoPost(
   )
 
   const url = `https://graph.facebook.com/${GRAPH_VERSION}/${page.pageId}/photos`
-  const resp = await fetch(url, { method: 'POST', body: form })
+  let resp: Response
+  try {
+    resp = await fetch(url, {
+      method: 'POST',
+      body: form,
+      signal: AbortSignal.timeout(META_FETCH_TIMEOUT_MS),
+    })
+  } catch (e: any) {
+    // 網路層失敗:請求可能已到達 Meta(貼文可能已發出),不可自動重發
+    const reason = e?.name === 'TimeoutError' ? '請求逾時' : `網路錯誤(${e?.message || e})`
+    throw new MetaPublishError(
+      `${reason} — 貼文可能已送出,請先到粉專確認再決定是否手動重發`,
+      false,
+    )
+  }
   const data = await resp.json().catch(() => ({}))
   if (!resp.ok) {
-    throw new Error(data?.error?.message || `Meta API HTTP ${resp.status}`)
+    const code = data?.error?.code
+    const retryable = typeof code === 'number' && TRANSIENT_META_ERROR_CODES.has(code)
+    throw new MetaPublishError(
+      data?.error?.message || `Meta API HTTP ${resp.status}`,
+      retryable,
+    )
   }
   // /photos 回傳 { id(照片 id), post_id(貼文 id) }
   return data.post_id || data.id || ''

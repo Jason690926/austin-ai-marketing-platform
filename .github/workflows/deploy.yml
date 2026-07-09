@@ -31,17 +31,19 @@ jobs:
           --repository-format=docker \
           --location=asia-east1 --quiet || true
 
-    # 呼叫 Cloud Build 進行打包（同時注入前端編譯所需的變數）
+    # 呼叫 Cloud Build 進行打包（同時注入前端編譯所需的變數）。
+    # image 同時打 commit SHA(不可變,可回滾)與 latest 兩個 tag,部署用 SHA 版。
     - name: Build and Push Container
       run: |
+        IMAGE_BASE=asia-east1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/austin-marketing/app
         gcloud builds submit --config cloudbuild.yaml \
-          --substitutions=_IMAGE=asia-east1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/austin-marketing/app:latest,_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }},_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          --substitutions=_IMAGE=$IMAGE_BASE:${{ github.sha }},_IMAGE_LATEST=$IMAGE_BASE:latest,_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }},_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
 
     # 正式部署到 Cloud Run，並自動綁定 GCP Secret Manager 內的安全金鑰
     - name: Deploy to Cloud Run
       run: |
         gcloud run deploy austin-marketing \
-          --image asia-east1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/austin-marketing/app:latest \
+          --image asia-east1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/austin-marketing/app:${{ github.sha }} \
           --region asia-east1 \
           --platform managed \
           --allow-unauthenticated \
@@ -50,4 +52,10 @@ jobs:
           --timeout 600 \
           --max-instances 5 \
           --min-instances 0 \
-          --set-secrets "SUPABASE_SERVICE_ROLE_KEY=SUPABASE_SERVICE_ROLE_KEY:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest"
+          --set-secrets "SUPABASE_SERVICE_ROLE_KEY=SUPABASE_SERVICE_ROLE_KEY:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest,GOOGLE_SHEETS_SA_JSON=GOOGLE_SHEETS_SA_JSON:latest" \
+          --set-env-vars "META_AD_SHEET_ID=1ezd2-wjt8yCyPF6aQTeK5GOCPvEJgFeXfFfN5OQo0QU"
+        # GOOGLE_SHEETS_SA_JSON 需先在 Secret Manager 建立（見 DEPLOY.md），
+        # 否則部署會失敗。META_AD_SHEET_ID 非機密（.env.local.example 已公開）。
+        # META_AD_SHEET_TAB 未設時程式預設 "meta"。
+        # 第二階段開放自動發文時，再比照加 META_PAGE_ACCESS_TOKEN（secret）
+        # 與 META_PAGE_ID / META_PAGE_NAME（env vars）。

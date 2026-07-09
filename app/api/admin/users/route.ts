@@ -35,14 +35,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: '無法變更自己的角色,請由另一位管理者操作' }, { status: 400 })
   }
 
-  // 4. service_role 更新目標使用者(繞 RLS)
+  // 4. service_role 更新目標使用者(繞 RLS);select 回寫確認真的有改到列
   const admin = createAdminClient()
-  const { error } = await admin
+  const { data: updated, error } = await admin
     .from('users')
     .update({ role })
     .eq('id', userId)
+    .select('id')
   if (error) {
     return NextResponse.json({ error: `更新失敗:${error.message}` }, { status: 500 })
+  }
+  if (!updated || updated.length === 0) {
+    return NextResponse.json({ error: '查無此使用者' }, { status: 404 })
   }
 
   return NextResponse.json({ success: true, userId, role })

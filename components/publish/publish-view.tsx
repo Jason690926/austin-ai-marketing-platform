@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useRef, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { ImagePlus, X, Check, ExternalLink, AlertTriangle } from 'lucide-react'
+import { X, Check, ExternalLink, AlertTriangle } from 'lucide-react'
+import { ImageDropzone } from '@/components/image-dropzone'
 import type { Asset, AssetPurpose, PublishPageResult } from '@/types'
 
 interface MetaPagePublicProp {
@@ -12,17 +13,7 @@ interface MetaPagePublicProp {
   pageName: string
 }
 
-const STORE_LABEL: Record<string, string> = { mattress: '床墊', bedding: '寢具' }
-const PURPOSE_LABEL: Record<AssetPurpose, string> = {
-  ad: 'Meta 廣告',
-  google_search_ad: 'Google 搜尋廣告',
-  pmax_ad: 'Google 多素材廣告',
-  post: 'IG 貼文',
-  fb_post: 'FB 貼文',
-  web_brand: '品牌故事',
-  web_product: '商品介紹',
-  seo_article: 'SEO 文章',
-}
+import { STORE_LABEL, PURPOSE_LABEL } from '@/lib/constants'
 
 function assetLabel(a: Asset): string {
   const head = `[${STORE_LABEL[a.store] ?? a.store}·${PURPOSE_LABEL[a.purpose] ?? a.purpose}]`
@@ -51,8 +42,6 @@ export function PublishView({
   const [selectedPageIds, setSelectedPageIds] = useState<string[]>(pages.map(p => p.pageId))
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
-  const [isDragging, setIsDragging] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
@@ -65,20 +54,18 @@ export function PublishView({
     if (a?.copy_text) setCopyText(a.copy_text)
   }
 
-  // 共用:點擊選檔與拖曳放入都走這條
-  function acceptImageFile(file: File | null | undefined) {
-    if (!file) return
+  // 驗證(型別/大小)由 ImageDropzone 統一處理,這裡只負責設檔 + 產生預覽
+  function acceptImageFile(file: File) {
+    setErrorMsg('')
     setImageFile(file)
+    if (imagePreview) URL.revokeObjectURL(imagePreview)
     setImagePreview(URL.createObjectURL(file))
-  }
-  function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    acceptImageFile(e.target.files?.[0])
   }
 
   function clearImage() {
     setImageFile(null)
+    if (imagePreview) URL.revokeObjectURL(imagePreview)
     setImagePreview(null)
-    if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   function togglePage(id: string) {
@@ -87,12 +74,25 @@ export function PublishView({
     )
   }
 
+  // 已有結果 = 本批已發布過:鎖住發布鈕,避免誤按第二下對同批粉專重複發文;
+  // 要再發須走「發布下一篇」明確重置
+  const alreadyPublished = results !== null
   const canPublish =
     !pagesError &&
     copyText.trim().length > 0 &&
     !!imageFile &&
     selectedPageIds.length > 0 &&
-    !loading
+    !loading &&
+    !alreadyPublished
+
+  function resetForNext() {
+    setResults(null)
+    setRecordWarning(null)
+    setErrorMsg('')
+    setCopyText('')
+    setSelectedAssetId('')
+    clearImage()
+  }
 
   async function handlePublish() {
     setLoading(true)
@@ -164,22 +164,8 @@ export function PublishView({
             <p className="text-xs text-muted-foreground mt-1.5">{imageFile?.name}</p>
           </div>
         ) : (
-          <div
-            onClick={() => fileInputRef.current?.click()}
-            onDragOver={e => { e.preventDefault(); setIsDragging(true) }}
-            onDragLeave={() => setIsDragging(false)}
-            onDrop={e => { e.preventDefault(); setIsDragging(false); acceptImageFile(e.dataTransfer.files?.[0]) }}
-            className={`flex items-center gap-3 border-2 border-dashed rounded-lg px-5 py-4 cursor-pointer transition-colors ${
-              isDragging ? 'border-foreground text-foreground bg-muted/50' : 'border-border text-muted-foreground hover:border-foreground'
-            }`}>
-            <ImagePlus size={20} />
-            <div>
-              <p className="text-sm">{isDragging ? '放開以上傳圖片' : '點擊或拖曳上傳圖片'}</p>
-              <p className="text-xs mt-0.5">JPG、PNG、WEBP</p>
-            </div>
-          </div>
+          <ImageDropzone onFile={acceptImageFile} onError={setErrorMsg} maxMB={10} />
         )}
-        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
       </div>
 
       {/* 發布粉專 */}
@@ -212,7 +198,9 @@ export function PublishView({
       <Button className="w-full" size="lg" onClick={handlePublish} disabled={!canPublish}>
         {loading
           ? '發布中…'
-          : `發布到 ${selectedPageIds.length} 個粉專`}
+          : alreadyPublished
+            ? '本批已發布(要再發請按下方「發布下一篇」)'
+            : `發布到 ${selectedPageIds.length} 個粉專`}
       </Button>
 
       {errorMsg && (
@@ -222,7 +210,12 @@ export function PublishView({
       )}
 
       {results && (
-        <ResultList results={results} recordWarning={recordWarning} />
+        <>
+          <ResultList results={results} recordWarning={recordWarning} />
+          <Button variant="outline" className="w-full" onClick={resetForNext}>
+            發布下一篇(清空文案與圖片)
+          </Button>
+        </>
       )}
     </div>
   )

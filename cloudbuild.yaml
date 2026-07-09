@@ -7,6 +7,7 @@
 # anon key 是公開值(本來就會出現在瀏覽器),放這裡沒有安全問題。其餘機密(service_role / Gemini / Meta)
 # 不在 build 階段,改在 Cloud Run runtime 用 --set-secrets 注入。
 
+# _IMAGE 帶 commit SHA tag(不可變,出事可回滾到任一舊版)、_IMAGE_LATEST 帶 latest(方便手動抓最新)。
 steps:
   - name: gcr.io/cloud-builders/docker
     args:
@@ -14,15 +15,20 @@ steps:
       - --build-arg=NEXT_PUBLIC_SUPABASE_URL=${_SUPABASE_URL}
       - --build-arg=NEXT_PUBLIC_SUPABASE_ANON_KEY=${_SUPABASE_ANON_KEY}
       - -t=${_IMAGE}
+      - -t=${_IMAGE_LATEST}
       - .
   - name: gcr.io/cloud-builders/docker
     args: [push, '${_IMAGE}']
+  - name: gcr.io/cloud-builders/docker
+    args: [push, '${_IMAGE_LATEST}']
 
 images:
   - '${_IMAGE}'
+  - '${_IMAGE_LATEST}'
 
 substitutions:
   _IMAGE: 'asia-east1-docker.pkg.dev/PROJECT_ID/austin-marketing/app:latest'
+  _IMAGE_LATEST: 'asia-east1-docker.pkg.dev/PROJECT_ID/austin-marketing/app:latest'
   _SUPABASE_URL: ''
   _SUPABASE_ANON_KEY: ''
 

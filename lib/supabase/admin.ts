@@ -1,3 +1,4 @@
+import 'server-only'  // 硬防呆:誤在 client component import 本檔會直接 build error
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 
 /**

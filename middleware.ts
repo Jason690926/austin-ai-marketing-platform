@@ -29,8 +29,9 @@ export async function middleware(request: NextRequest) {
 
   const isAuthPath = request.nextUrl.pathname.startsWith('/login')
   const isApiAuth = request.nextUrl.pathname.startsWith('/api/auth')
+  const isHealth = request.nextUrl.pathname === '/api/health'  // 監控探測不需登入
 
-  if (!user && !isAuthPath && !isApiAuth) {
+  if (!user && !isAuthPath && !isApiAuth && !isHealth) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)

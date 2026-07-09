@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth/role'
 import { AppShell } from '@/components/layout/app-shell'
 import { Check, AlertTriangle, ExternalLink } from 'lucide-react'
@@ -16,12 +17,16 @@ function formatTime(iso: string): string {
   }
 }
 
-export default async function PostsPage() {
+const PAGE_SIZE = 50
+
+export default async function PostsPage({
+  searchParams,
+}: {
+  searchParams?: { page?: string }
+}) {
   const me = await getCurrentUser()
   if (!me) redirect('/login')
   if (me.role !== 'admin') redirect('/generator')
-
-  const supabase = createClient()
 
   async function logout() {
     'use server'
@@ -30,19 +35,28 @@ export default async function PostsPage() {
     redirect('/login')
   }
 
-  const { data: posts, error } = await supabase
+  const page = Math.max(1, parseInt(searchParams?.page ?? '1', 10) || 1)
+  const from = (page - 1) * PAGE_SIZE
+
+  // 本頁限 admin(上方已驗),用 service_role 讀全公司紀錄 —
+  // 一般 client 受 RLS 限制只看得到自己發的,多位 admin 會互相看不到
+  const admin = createAdminClient()
+  const { data: posts, error, count } = await admin
     .from('posts')
-    .select('*')
+    .select('*', { count: 'exact' })
     .order('published_at', { ascending: false })
+    .range(from, from + PAGE_SIZE - 1)
 
   const rows = (posts ?? []) as Post[]
+  const total = count ?? rows.length
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   return (
     <AppShell user={{ email: me.email }} isAdmin logoutAction={logout}>
       <div className="p-8 max-w-3xl">
         <h2 className="text-2xl font-bold mb-1">發文紀錄</h2>
         <p className="text-muted-foreground text-sm mb-8">
-          每一列代表一次發布到單一粉專的結果
+          每一列代表一次發布到單一粉專的結果（全公司紀錄，共 {total} 筆）
         </p>
 
         {error ? (
@@ -99,6 +113,22 @@ export default async function PostsPage() {
                 )}
               </div>
             ))}
+
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between pt-3 text-sm">
+                {page > 1 ? (
+                  <a href={`/posts?page=${page - 1}`} className="text-muted-foreground hover:text-foreground">
+                    ← 較新的紀錄
+                  </a>
+                ) : <span />}
+                <span className="text-xs text-muted-foreground">第 {page} / {totalPages} 頁</span>
+                {page < totalPages ? (
+                  <a href={`/posts?page=${page + 1}`} className="text-muted-foreground hover:text-foreground">
+                    較舊的紀錄 →
+                  </a>
+                ) : <span />}
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -126,7 +126,31 @@ npx tsc --noEmit     # 型別檢查（每次改完跑）
 
 2. **RSA 結果不分卡**（2026-06-08 修，commit `7229168`）：Google 搜尋廣告（RSA）產出後不像 PMax 能逐區塊單獨複製，整篇變一塊純文字。根因：RSA 短區塊（15 標題等）模型常輸出「`【Headline 1】內容`」**同一行**，而 `parse-sections.ts` 舊正規表達式 `/^\s*【…】\s*$/gm` 要求標頭**獨佔一行** → 解析回 `[]` → `useStructured` 為 false → 退化成單一文字塊。修法：regex 改 `/^[ \t]*【([^】\n]+)】[ \t]*(.*)$/gm`，標頭後可選地接同行內容（group 2），content = 同行內容 + 後續換行內容。向下相容，已驗證 RSA 同行 / PMax 換行 / Ad 多行 Primary Text（含段落空行保留）三種格式皆正確。⚠️ 此 bug 正凸顯 parseSections 的脆弱性 → **已由待辦 D（Structured JSON Output / responseSchema）根治**（2026-06-09，見第十三輪）：寫入端改由受控 serializer 產出標準格式，解析脆弱在物理上不再發生。
 
-### 改動歷程（2026-05-20 ~ 06-09）
+### 改動歷程（2026-05-20 ~ 07-09）
+
+**第十五輪：全面設計體檢 + 加固（2026-07-09）— 四路並行審查後修高/中優先**
+
+四個審查代理並行體檢（權限/admin、核心 API、前端、DB/部署），安全底線確認紮實（後端驗證全覆蓋、RLS 擋提權、service_role 不洩前端），修掉以下設計問題：
+
+1. **Migration 斷層（高）**：`users.role` 被 002 DROP 後 repo 一直沒補回（線上是手動 ALTER 的）→ 新增 `007_add_users_role.sql`（冪等）收編進版控；`setup.sql` 重生為 001–007 完整合併（原缺 003 DELETE 政策、005 posts、006 storage bucket，且仍有 DROP role）。
+2. **雲端缺 Sheets env（高）**：`deploy.yml` 補 `GOOGLE_SHEETS_SA_JSON`（Secret Manager）+ `META_AD_SHEET_ID`（env var）— 原本 Cloud Run 上「推送 Google Sheet」必失敗。⚠️ push 前須先在 Secret Manager 建好該 secret，否則部署失敗。
+3. **產圖 API 防護（高）**：sizes 去重 + 總量上限 `MAX_TARGETS=12` + 併發池（同時 3，取代裸 Promise.all）；`gemini/image.ts` retry 納入 429/5xx/timeout（429 用 4s/8s 長退避）+ fetch 加 120s `AbortSignal.timeout`；maxDuration 60→300 並註明 Cloud Run 實際由 `--timeout 600` 決定。
+4. **copy-tab stale purpose（高）**：產生成功時快照 `resultMeta{purpose, campaignLabel}`，結果區改用快照渲染 — 原本產完後切換用途，舊結果會套新用途的按鈕（可把貼文誤推進廣告 Sheet）。
+5. **發文重複防護（中）**：`meta/client.ts` 新增 `MetaPublishError`（retryable 分類）+ 60s timeout — **網路逾時屬曖昧狀態（貼文可能已送出）標 retryable=false，Round 2 不再自動重發**；只有 Meta 明確回暫時性錯誤碼（1/2/4/17/32/341）才重試，且先等 3 秒。publish route 加 10MB 圖片上限。前端 publish-view 發布成功後鎖表單，要再發須按「發布下一篇」明確重置。
+6. **統計頁準確性（中）**：`/admin` 改 `fetchAll`（`.range()` 迴圈）突破 PostgREST 1000 列默默截斷；花費計算排除 `source='user_uploaded'` 與無 `image_level` 的列（原本被誤計 $0.039）。`/posts` 改用 service_role 讀全公司紀錄（原 RLS 只看得到自己發的，多 admin 互相看不到）+ limit 200。
+7. **共用 `components/image-dropzone.tsx`（中）**：統一四處上傳區（copy-tab / image-tab 商品圖+參考圖 / publish-view）— 一致驗證（型別 + 大小；copy/publish 10MB、image-tab 5MB）、鍵盤可及（button 非 div）、dragleave 子元素閃爍修正、objectURL 統一回收。copy route 後端同步加 base64 14M 字元（≈10MB）上限。
+8. 附帶：產圖 route 商品圖/參考圖上傳失敗補 `console.warn`（原靜默吞）；copy-tab 按鈕過時的「Gemini 2.5 Flash」字樣改為等待時間提示。
+
+同日續修（低優先批次）：
+9. **`/api/health`**：輕量健康檢查（回 200 + 關鍵 env 有無載入,不打外部服務）,middleware 放行免登入。
+10. **部署可回滾**：image 同時打 `${{ github.sha }}`（不可變）+ `latest` 兩個 tag（`cloudbuild.yaml` 加 `_IMAGE_LATEST`）,Cloud Run 部署改用 SHA 版。
+11. **`lib/constants.ts`**：TYPE/STORE/PURPOSE_LABEL 單一來源,library-view 與 publish-view 改 import（原兩份文字不一致）。
+12. **兩份 parseSections 收攏**：sheets route 改包裝共用 `lib/copy/parse-sections`（寬鬆版為嚴格版超集）;順手刪掉死程式碼 `ensureEnoughColumns`。
+13. **`/posts` 分頁**：searchParams `?page=`,每頁 50 筆 + 上下頁 + 總筆數。
+14. **`008_lock_down_facebook_pages.sql`**：撤掉 `facebook_pages`（存 Page token!）與 `scheduled_posts` 的「任何登入者全開」RLS 政策 — 收緊後只剩 service_role 可存取,#4/#5 動工時再按需開;setup.sql 同步。
+15. 微項：`lib/supabase/admin.ts` 加 `import 'server-only'` 硬防呆（新增該 dev 依賴）;admin users API 更新 0 列回 404;clipboard 加 try/catch（非 HTTPS 防呆）;`.env.local.example` 刪零引用的 R2_*/NEXT_PUBLIC_APP_URL;`shadcn` CLI 移 devDependencies。
+
+驗證：`tsc --noEmit` ✓、45 測試 ✓、`npm run build` ✓（/api/health 已入 route 表）。剩餘未做：GCP 錯誤告警（使用者需在 Cloud Console 設 log-based alert）、editor 帳號實機驗證權限分級。⚠️ 使用者部署前置：Secret Manager 建 `GOOGLE_SHEETS_SA_JSON` + Supabase 跑 migration 007、008。
 
 **第十四輪：AI 產圖「創意尺度」第三視覺軸（2026-06-09）— 討論定案 + plan + TDD + 實測迭代**
 

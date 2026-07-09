@@ -31,6 +31,10 @@ export async function POST(request: Request) {
   if (!STORES.includes(body.store) || !PURPOSES.includes(body.purpose)) {
     return NextResponse.json({ error: 'store 或 purpose 不合法' }, { status: 400 })
   }
+  // 參考圖 base64 大小上限 — 對齊前端 ImageDropzone 的 10MB(base64 膨脹 ~1.37 倍)
+  if (body.referenceImageBase64 && body.referenceImageBase64.length > 14_000_000) {
+    return NextResponse.json({ error: '參考圖片超過 10MB 上限' }, { status: 400 })
+  }
 
   // 3. Generate copy with Gemini 2.5 Flash
   // 待辦 D:廣告/SEO 類用途改走 responseSchema 強制結構化 JSON(滿配由 schema 的

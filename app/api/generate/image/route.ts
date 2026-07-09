@@ -21,7 +21,14 @@ import type {
 } from '@/types'
 
 export const runtime = 'nodejs'
-export const maxDuration = 60  // 多尺寸並行最久 60 秒
+// 注意:maxDuration 是 Vercel 慣例,Cloud Run 不理它(實際上限由 service --timeout 決定,現設 600s)。
+// 值對齊最壞情境:12 target ÷ 併發 3 × Pro 單張含重試可到 ~2 分鐘。
+export const maxDuration = 300
+
+// 單次請求產圖總量上限(每張 Pro ~$0.134,一次打太多也會撞 Gemini rate limit)
+const MAX_TARGETS = 12
+// 同時打 Gemini 的併發數(其餘排隊),避免瞬間全並行觸發 429
+const GEMINI_CONCURRENCY = 3
 
 const STORES: AssetStore[] = ['mattress', 'bedding']
 const MODES: InputMode[] = ['scene', 'reference', 'freeform']
@@ -116,6 +123,7 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json({ error: 'sizes 格式錯誤' }, { status: 400 })
   }
+  if (Array.isArray(sizes)) sizes = Array.from(new Set(sizes))  // 去重,防重複值灌大產圖量
 
   // Level 2 廣告文字(JSON):{title, subtitle?, endorsement?, features?: [{title, subtitle?}]}
   let adContent: AdContent | null = null
@@ -249,6 +257,8 @@ export async function POST(request: Request) {
     if (!upErr) {
       const { data: pub } = supabase.storage.from('generated-images').getPublicUrl(path)
       productImageStorageUrl = pub.publicUrl
+    } else {
+      console.warn(`商品圖上傳 Storage 失敗(不影響產圖,僅失去可追溯 URL): ${upErr.message}`)
     }
   }
 
@@ -278,6 +288,8 @@ export async function POST(request: Request) {
     if (!upErr) {
       const { data: pub } = supabase.storage.from('generated-images').getPublicUrl(path)
       referenceImageStorageUrl = pub.publicUrl
+    } else {
+      console.warn(`參考圖上傳 Storage 失敗(不影響產圖,僅失去可追溯 URL): ${upErr.message}`)
     }
   }
 
@@ -318,6 +330,13 @@ export async function POST(request: Request) {
     for (const sz of baseSizes) targets.push(sz)
   }
 
+  if (targets.length > MAX_TARGETS) {
+    return NextResponse.json(
+      { error: `單次產圖上限 ${MAX_TARGETS} 張(目前 ${targets.length} 張 = 尺寸數 × 變體數),請減少尺寸或變體數量` },
+      { status: 400 },
+    )
+  }
+
   // 8. 對每個 target 並行產圖
   const additionalNotes = [
     description && mode !== 'freeform' ? description : '',
@@ -329,7 +348,7 @@ export async function POST(request: Request) {
   const burnsText = level === 'level2' || level === 'level3'
   const imageModel = burnsText ? IMAGE_MODEL_PRO : undefined
 
-  const tasks = targets.map(async (target): Promise<
+  const runTarget = async (target: ImageTarget): Promise<
     | { ok: true; asset: Asset; label: string }
     | { ok: false; label: string; error: string }
   > => {
@@ -408,9 +427,9 @@ export async function POST(request: Request) {
     } catch (e: any) {
       return { ok: false, label: target.label, error: e?.message || '未知錯誤' }
     }
-  })
+  }
 
-  const settled = await Promise.all(tasks)
+  const settled = await mapWithConcurrency(targets, GEMINI_CONCURRENCY, runTarget)
   const assets = settled.filter((r): r is { ok: true; asset: Asset; label: string } => r.ok).map(r => r.asset)
   const errors = settled.filter((r): r is { ok: false; label: string; error: string } => !r.ok)
 
@@ -420,6 +439,25 @@ export async function POST(request: Request) {
     successCount: assets.length,
     failedCount: errors.length,
   })
+}
+
+// 併發池:同時最多 limit 個任務,其餘排隊(取代裸 Promise.all 全並行)。
+// fn 內部自行 catch(runTarget 永不 throw),故不需額外錯誤處理。
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length)
+  let next = 0
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const i = next++
+      results[i] = await fn(items[i])
+    }
+  })
+  await Promise.all(workers)
+  return results
 }
 
 function randomId(): string {
