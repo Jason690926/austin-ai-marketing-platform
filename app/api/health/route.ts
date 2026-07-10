@@ -5,6 +5,9 @@ import { NextResponse } from 'next/server'
 // (避免監控高頻打掛外部配額;深度檢查交給錯誤告警)。
 
 export const runtime = 'nodejs'
+// 只有 GET 且不讀 request 的 route 會被 Next 在 build 時靜態化,env 檢查會變成
+// build 當下的快照(runtime secrets 全 false)— 必須強制動態才反映真實 runtime env。
+export const dynamic = 'force-dynamic'
 
 export async function GET() {
   return NextResponse.json({
